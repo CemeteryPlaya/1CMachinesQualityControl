@@ -1,0 +1,210 @@
+from flask import Blueprint, render_template, request, jsonify
+from form_config import get_form_config
+from sheets_service import append_inspection_data
+from datetime import datetime
+import odata_service
+from database import get_machine_by_id, get_all_machines, get_employee_by_id, get_employees_by_position
+import logging
+import asyncio
+import threading
+from bot_instance import bot
+from translations import get_bot_message
+
+app_bp = Blueprint('app', __name__)
+logger = logging.getLogger(__name__)
+
+@app_bp.route('/')
+def index():
+    """Renders the inspection form with language support."""
+    # Получаем язык из параметров URL, по умолчанию русский
+    lang = request.args.get('lang', 'ru')
+
+    # Валидируем язык
+    if lang not in ['ru', 'en', 'kk', 'uz']:
+        lang = 'ru'
+
+    # Получаем конфигурацию формы для выбранного языка
+    form_config = get_form_config(lang)
+
+    # Заголовки в зависимости от языка
+    titles = {
+        "ru": "Чек-лист инспекции спецтехники",
+        "en": "Equipment Inspection Checklist",
+        "kk": "Техниканы тексеру тізімі",
+        "uz": "Texnika tekshiruv ro'yxati"
+    }
+
+    return render_template('index.html',
+                           title=titles.get(lang, titles['ru']),
+                           questions=form_config,
+                           lang=lang)
+
+@app_bp.route('/api/machines', methods=['GET'])
+def get_machines():
+    """Returns list of machines from 1C (or local DB fallback)."""
+    try:
+        # Trigger sync/fetch
+        machines = odata_service.sync_machines()
+        return jsonify(machines)
+    except Exception as e:
+        logger.error(f"Error in /api/machines: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app_bp.route('/submit', methods=['POST'])
+def submit_form():
+    """Handles form submission."""
+    try:
+        data = request.json
+        if not data:
+            return jsonify({"success": False, "error": "No data received"}), 400
+
+        # 1. Добавляем отметку времени (как в Google Forms)
+        data['timestamp'] = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+
+        inspection_date = data.get('inspection_date')
+        if inspection_date:
+            try:
+                date_obj = datetime.strptime(inspection_date, '%Y-%m-%d')
+                data['inspection_date'] = date_obj.strftime('%d.%m.%Y')
+            except ValueError:
+                pass
+
+        insurance_end_date = data.get('insurance_end_date')
+        if insurance_end_date:
+            try:
+                date_obj = datetime.strptime(insurance_end_date, '%Y-%m-%d')
+                data['insurance_end_date'] = date_obj.strftime('%d.%m.%Y')
+            except ValueError:
+                pass
+
+        technical_inspection_date = data.get('technical_inspection_date')
+        if technical_inspection_date:
+            try:
+                date_obj = datetime.strptime(technical_inspection_date, '%Y-%m-%d')
+                data['technical_inspection_date'] = date_obj.strftime('%d.%m.%Y')
+            except ValueError:
+                pass
+
+        # Обработка водителя
+        driver_uid = data.get('driver_uid')
+        if driver_uid:
+            driver = get_employee_by_id(driver_uid)
+            if driver:
+                formatted_driver = f"{driver['full_name']} (Водитель)"
+                data['driver_uid'] = formatted_driver
+                data['driver_name'] = driver['full_name']
+            else:
+                logger.warning(f"Driver with ID {driver_uid} not found")
+
+        # Обработка механика
+        mechanic_uid = data.get('mechanic_uid')
+        if mechanic_uid:
+            mechanic = get_employee_by_id(mechanic_uid)
+            if mechanic:
+                formatted_mechanic = f"{mechanic['full_name']} (Механик)"
+                data['mechanic_uid'] = formatted_mechanic
+                data['mechanic_name'] = mechanic['full_name']
+            else:
+                logger.warning(f"Mechanic with ID {mechanic_uid} not found")
+
+        # Обработка машины
+        machine_uid = data.get('machine_uid')
+        if not machine_uid:
+             return jsonify({"success": False, "error": "machine_uid is missing"}), 400
+
+        machine = get_machine_by_id(machine_uid)
+        if not machine:
+            return jsonify({"success": False, "error": "Machine not found"}), 404
+
+        # 2. Формируем единую строку для столбца "Машина"
+        plate = machine['license_plate'] if machine['license_plate'] else 'Нет ГРНЗ'
+        formatted_machine = f"Модель: {machine['model']} | ГРНЗ: {plate} | ИН: {machine['inventory_number']}"
+
+        # Записываем её в machine_uid, который мапится на заголовок "Машина"
+        data['machine_uid'] = formatted_machine
+
+        # 3. Инъекция деталей в отдельные поля (если столбцы в таблице остались)
+        data['machine_inv'] = machine['inventory_number']
+        data['model'] = machine['model']
+        data['license_plate'] = machine['license_plate']
+
+        # 4. Указываем верное имя листа (убедитесь, что оно совпадает с Sheets)
+        success = append_inspection_data(data, sheet_name='Ответы на форму')
+
+        if success:
+            # Send confirmation message to user via bot in background thread
+            telegram_user_id = data.get('telegram_user_id')
+            lang = data.get('lang', 'ru')
+
+            logger.info(f"Form submitted successfully. telegram_user_id: {telegram_user_id}, lang: {lang}")
+
+            if telegram_user_id:
+                # Format confirmation message with submission timestamp
+                submission_time = data.get('timestamp', datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
+                confirmation_text = get_bot_message('submission_confirmed', lang).format(datetime=submission_time)
+
+                logger.info(f"Preparing to send confirmation message to user {telegram_user_id}")
+
+                # Send message in background thread to not block response
+                def send_message_async():
+                    logger.info(f"Background thread started for user {telegram_user_id}")
+                    try:
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                        logger.info(f"Sending message to chat_id={telegram_user_id}: {confirmation_text}")
+                        loop.run_until_complete(bot.send_message(chat_id=telegram_user_id, text=confirmation_text))
+                        loop.close()
+                        logger.info(f"✅ Confirmation message sent successfully to user {telegram_user_id}")
+                    except Exception as e:
+                        logger.error(f"❌ Failed to send confirmation message to {telegram_user_id}: {e}", exc_info=True)
+
+                # Start background thread
+                thread = threading.Thread(target=send_message_async, name=f"TelegramBot-{telegram_user_id}")
+                thread.daemon = True
+                thread.start()
+                logger.info(f"Background thread started: {thread.name}")
+            else:
+                logger.warning("telegram_user_id is missing - cannot send confirmation message")
+
+            return jsonify({"success": True})
+        else:
+            return jsonify({"success": False, "error": "Failed to save to Google Sheets"}), 500
+
+    except Exception as e:
+        logger.error(f"Error in /submit: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app_bp.route('/api/get_machines_form', methods=['GET'])
+def get_machines_for_google():
+    machines = get_all_machines() # function from database.py
+    # Form list of strings
+    return jsonify([
+        f"Модель: {m['model']} | ГРНЗ: {m['license_plate']} | ИН: {m['inventory_number']}"
+        for m in machines
+    ])
+
+@app_bp.route('/api/drivers', methods=['GET'])
+def get_drivers():
+    """Returns list of drivers from 1C (or local DB fallback)."""
+    try:
+        # Trigger sync/fetch for all employees
+        odata_service.sync_employees()
+        # Get only drivers
+        drivers = get_employees_by_position('DRIVER')
+        return jsonify(drivers)
+    except Exception as e:
+        logger.error(f"Error in /api/drivers: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app_bp.route('/api/mechanics', methods=['GET'])
+def get_mechanics():
+    """Returns list of mechanics from 1C (or local DB fallback)."""
+    try:
+        # Trigger sync/fetch for all employees
+        odata_service.sync_employees()
+        # Get only mechanics
+        mechanics = get_employees_by_position('MECHANIC')
+        return jsonify(mechanics)
+    except Exception as e:
+        logger.error(f"Error in /api/mechanics: {e}")
+        return jsonify({"error": str(e)}), 500

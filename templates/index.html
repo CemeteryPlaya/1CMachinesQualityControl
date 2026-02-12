@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Translations -->
+    <script>
+        window.APP_LANG = "{{ lang }}";
+        window.TRANSLATIONS = {
+            "submit_button": "{{ {'ru': 'ОТПРАВИТЬ', 'en': 'SUBMIT', 'kk': 'ЖІБЕРУ', 'uz': 'YUBORISH'}[lang] }}",
+            "loading_machines_error": "{{ {'ru': 'Не удалось загрузить список машин', 'en': 'Failed to load machines list', 'kk': 'Машиналар тізімін жүктеу мүмкін болмады', 'uz': 'Mashinalar ro\'yxatini yuklash muvaffaqiyatsiz tugadi'}[lang] }}",
+            "loading_drivers_error": "{{ {'ru': 'Не удалось загрузить список водителей', 'en': 'Failed to load drivers list', 'kk': 'Жүргізушілер тізімін жүктеу мүмкін болмады', 'uz': 'Haydovchilar ro\'yxatini yuklash muvaffaqiyatsiz tugadi'}[lang] }}",
+            "loading_mechanics_error": "{{ {'ru': 'Не удалось загрузить список механиков', 'en': 'Failed to load mechanics list', 'kk': 'Механиктер тізімін жүктеу мүмкін болмады', 'uz': 'Mexaniklar ro\'yxatini yuklash muvaffaqiyatsiz tugadi'}[lang] }}",
+            "submission_error": "{{ {'ru': 'Ошибка при отправке', 'en': 'Submission error', 'kk': 'Жіберу қатесі', 'uz': 'Yuborish xatosi'}[lang] }}",
+            "network_error": "{{ {'ru': 'Ошибка сети. Попробуйте еще раз.', 'en': 'Network error. Please try again.', 'kk': 'Желі қатесі. Қайталап көріңіз.', 'uz': 'Tarmoq xatosi. Iltimos, qayta urinib ko\'ring.'}[lang] }}"
+        };
+    </script>
+</head>
+<body>
+    <div class="header-strip"></div>
+    <div class="container">
+        <div class="form-header">
+            <h1>{{ title }}</h1>
+            <p>Пожалуйста, заполните форму внимательно.</p>
+        </div>
+
+        <form id="inspectionForm">
+            {% for item in questions %}
+                {% if item.type == 'header' %}
+                    <div class="section-header">
+                        <h2>{{ item.label }}</h2>
+                    </div>
+                {% elif item.type == 'text' %}
+                    <div class="question-card" data-required="{{ item.required }}">
+                        <label for="{{ item.id }}" class="question-label">{{ item.label }} {% if item.required %} <span class="required">*</span> {% endif %}</label>
+                        <input type="text" id="{{ item.id }}" name="{{ item.id }}" class="text-input" placeholder="Мой ответ">
+                        <div class="error-msg">Это поле обязательно</div>
+                    </div>
+                {% elif item.type == 'date' %}
+                    <div class="question-card" data-required="{{ item.required }}">
+                        <label for="{{ item.id }}" class="question-label">{{ item.label }} {% if item.required %} <span class="required">*</span> {% endif %}</label>
+                        <input type="date" id="{{ item.id }}" name="{{ item.id }}" class="text-input">
+                        <div class="error-msg">Это поле обязательно</div>
+                    </div>
+                {% elif item.type == 'number' %}
+                    <div class="question-card" data-required="{{ item.required }}">
+                        <label for="{{ item.id }}" class="question-label">{{ item.label }} {% if item.required %} <span class="required">*</span> {% endif %}</label>
+                        <input type="number" id="{{ item.id }}" name="{{ item.id }}" class="text-input" placeholder="0">
+                        <div class="error-msg">Это поле обязательно</div>
+                    </div>
+                {% elif item.type == 'hidden' %}
+                    <!-- Hidden field only for backend purpose -->
+                    <input type="hidden" name="{{ item.id }}" value="">
+                {% elif item.type == 'select' %}
+                    <div class="question-card" data-required="{{ item.required }}" id="card_{{ item.id }}">
+                        <label for="{{ item.id }}" class="question-label">{{ item.label }} {% if item.required %} <span class="required">*</span> {% endif %}</label>
+                        <!-- Custom Searchable Dropdown Structure -->
+                        <div class="custom-select-container">
+                            {% if item.id == 'machine_uid' %}
+                                <input type="text" id="search_{{ item.id }}" class="text-input search-input" placeholder="Поиск машины..." autocomplete="off">
+                            {% elif item.id == 'driver_uid' %}
+                                <input type="text" id="search_{{ item.id }}" class="text-input search-input" placeholder="Поиск водителя..." autocomplete="off">
+                            {% elif item.id == 'mechanic_uid' %}
+                                <input type="text" id="search_{{ item.id }}" class="text-input search-input" placeholder="Поиск механика..." autocomplete="off">
+                            {% else %}
+                                <input type="text" id="search_{{ item.id }}" class="text-input search-input" placeholder="Поиск..." autocomplete="off">
+                            {% endif %}
+                            <input type="hidden" id="{{ item.id }}" name="{{ item.id }}">
+                            <div id="dropdown_{{ item.id }}" class="custom-dropdown-list" style="display: none;">
+                                <!-- Options will be injected here -->
+                            </div>
+                        </div>
+                        {% if item.id == 'machine_uid' %}
+                            <div class="error-msg">Выберите машину из списка</div>
+                        {% elif item.id == 'driver_uid' %}
+                            <div class="error-msg">Выберите водителя из списка</div>
+                        {% elif item.id == 'mechanic_uid' %}
+                            <div class="error-msg">Выберите механика из списка</div>
+                        {% else %}
+                            <div class="error-msg">Это поле обязательно</div>
+                        {% endif %}
+                    </div>
+                {% elif item.type == 'radio' %}
+                    <div class="question-card" data-required="{{ item.required }}" id="card_{{ item.id }}">
+                        <label class="question-label">{{ item.label }} {% if item.required %} <span class="required">*</span> {% endif %}</label>
+                        <div class="radio-group">
+                            {% for option in item.options %}
+                            <label class="radio-option">
+                                <input type="radio" name="{{ item.id }}" value="{{ option }}">
+                                <span>{{ option }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                        <div class="error-msg">Это поле обязательно</div>
+                    </div>
+                {% endif %}
+            {% endfor %}
+            <div id="submit-error" class="submit-error" style="display: none;"></div>
+        </form>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
