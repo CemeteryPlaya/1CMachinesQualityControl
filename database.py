@@ -70,6 +70,15 @@ def init_db():
                 last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS departments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                department_code TEXT UNIQUE NOT NULL,
+                name TEXT NOT NULL,
+                ref_key TEXT,
+                last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
         conn.commit()
         logger.info("Database initialized successfully.")
     except Exception as e:
@@ -183,3 +192,56 @@ def get_employee_by_id(employee_id: int) -> Optional[Dict]:
     finally:
         conn.close()
     return employee
+
+
+# ============================================================
+# DEPARTMENTS (Подразделения)
+# ============================================================
+
+def upsert_department(department_code: str, name: str, ref_key: str):
+    """Inserts or updates department in database"""
+    conn = get_db_connection()
+    try:
+        conn.execute('''
+            INSERT INTO departments (department_code, name, ref_key, last_updated)
+            VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(department_code)
+            DO UPDATE SET
+                name = excluded.name,
+                ref_key = excluded.ref_key,
+                last_updated = CURRENT_TIMESTAMP
+        ''', (department_code, name, ref_key))
+        conn.commit()
+    except Exception as e:
+        logger.error(f"Error upserting department {department_code}: {e}")
+    finally:
+        conn.close()
+
+
+def get_all_departments() -> List[Dict]:
+    """Returns all departments from database"""
+    conn = get_db_connection()
+    departments = []
+    try:
+        rows = conn.execute('SELECT * FROM departments ORDER BY name').fetchall()
+        departments = [dict(row) for row in rows]
+    except Exception as e:
+        logger.error(f"Error fetching departments: {e}")
+    finally:
+        conn.close()
+    return departments
+
+
+def get_department_by_id(department_id: int) -> Optional[Dict]:
+    """Returns department by ID"""
+    conn = get_db_connection()
+    department = None
+    try:
+        row = conn.execute('SELECT * FROM departments WHERE id = ?', (department_id,)).fetchone()
+        if row:
+            department = dict(row)
+    except Exception as e:
+        logger.error(f"Error fetching department {department_id}: {e}")
+    finally:
+        conn.close()
+    return department

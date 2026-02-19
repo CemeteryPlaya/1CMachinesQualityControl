@@ -10,25 +10,29 @@ BOT_MESSAGES = {
         "welcome": "Здравствуйте! Выберите язык для заполнения формы инспекции спецтехники:",
         "language_selected": "Язык выбран: Русский\n\nНажмите кнопку ниже, чтобы открыть форму:",
         "fill_form_button": "📝 Заполнить чек-лист",
-        "submission_confirmed": "✅ Чек-лист отправлен.\nДата и время отправки: {datetime}"
+        "submission_confirmed": "✅ Чек-лист отправлен.\nДата и время отправки: {datetime}",
+        "other_placeholder": "Укажите свой вариант"
     },
     "en": {
         "welcome": "Hello! Select a language to fill out the equipment inspection form:",
         "language_selected": "Language selected: English\n\nClick the button below to open the form:",
         "fill_form_button": "📝 Fill out checklist",
-        "submission_confirmed": "✅ Checklist submitted.\nSubmission date and time: {datetime}"
+        "submission_confirmed": "✅ Checklist submitted.\nSubmission date and time: {datetime}",
+        "other_placeholder": "Specify your option"
     },
     "kk": {
         "welcome": "Сәлеметсіз бе! Техника тексеру нысанын толтыру үшін тілді таңдаңыз:",
         "language_selected": "Тіл таңдалды: Қазақша\n\nНысанды ашу үшін төмендегі батырманы басыңыз:",
         "fill_form_button": "📝 Тексеру тізімін толтыру",
-        "submission_confirmed": "✅ Тексеру тізімі жіберілді.\nЖіберу күні мен уақыты: {datetime}"
+        "submission_confirmed": "✅ Тексеру тізімі жіберілді.\nЖіберу күні мен уақыты: {datetime}",
+        "other_placeholder": "Өз нұсқаңызды көрсетіңіз"
     },
     "uz": {
         "welcome": "Assalomu aleykum! Texnika tekshirish formasini to'ldirish uchun tilni tanlang:",
         "language_selected": "Til tanlandi: O'zbekcha\n\nFormani ochish uchun quyidagi tugmani bosing:",
         "fill_form_button": "📝 Tekshiruv ro'yxatini to'ldirish",
-        "submission_confirmed": "✅ Tekshiruv ro'yxati yuborildi.\nYuborish sanasi va vaqti: {datetime}"
+        "submission_confirmed": "✅ Tekshiruv ro'yxati yuborildi.\nYuborish sanasi va vaqti: {datetime}",
+        "other_placeholder": "Oz variantingizni kiriting"
     }
 }
 
@@ -130,6 +134,12 @@ FIELD_LABELS = {
         "kk": "Тексеру күні",
         "uz": "Tekshiruv sanasi"
     },
+    "department_uid": {
+        "ru": "Подразделение",
+        "en": "Department",
+        "kk": "Бөлім",
+        "uz": "Bo'lim"
+    },
     "driver_uid": {
         "ru": "Водитель",
         "en": "Driver",
@@ -154,11 +164,29 @@ FIELD_LABELS = {
         "kk": "Мотосағаттар",
         "uz": "Motor soatlari"
     },
+    "motorhours_hint": {
+        "ru": "(если легковое — писать 0)",
+        "en": "(if passenger car — write 0)",
+        "kk": "(жеңіл автомобиль болса — 0 жазу)",
+        "uz": "(agar yengil avtomobil bo'lsa — 0 yozing)"
+    },
     "mileage": {
         "ru": "Километраж",
         "en": "Mileage",
         "kk": "Жүгірген жол",
         "uz": "Kilometraj"
+    },
+    "mileage_hint": {
+        "ru": "(если спецтехника — писать 0)",
+        "en": "(if special machinery — write 0)",
+        "kk": "(арнайы техника болса — 0 жазу)",
+        "uz": "(agar maxsus texnika bo'lsa — 0 yozing)"
+    },
+        "capacity_of_fuel_in_fueltank": {
+        "ru": "Объем топлива в баке на момент проверки",
+        "en": "Fuel capacity in fuel tank at the time of inspection",
+        "kk": "Жанармай қоймасындағы жанармай көлемі тексеру кезінде",
+        "uz": "Yoqilg'i xotirasida yoqilg'i hajmi tekshiruv vaqtida"
     }
 }
 
@@ -240,11 +268,11 @@ OPTION_TRANSLATIONS = {
         "kk": "Қалыпсыз",
         "uz": "Normal emas"
     },
-    "Без ответа": {
-        "ru": "Без ответа",
-        "en": "No answer",
-        "kk": "Жауапсыз",
-        "uz": "Javobsiz"
+    "Другое": {
+        "ru": "Другое",
+        "en": "Other",
+        "kk": "Басқа",
+        "uz": "Boshqa"
     },
     "Отсутствует": {
         "ru": "Отсутствует",
