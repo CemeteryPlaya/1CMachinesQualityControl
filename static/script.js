@@ -31,6 +31,11 @@ document.addEventListener('DOMContentLoaded', () => {
         loadMechanics();
     }
 
+    const departmentSelect = document.getElementById('department_uid');
+    if (departmentSelect) {
+        loadDepartments();
+    }
+
     // Listen to MainButton click
     tg.MainButton.onClick(() => {
         submitForm();
@@ -46,11 +51,90 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
+
+    // Setup "Другое" (Other) functionality for radio buttons
+    setupOtherInputs();
+
+    // Setup conditional date fields for insurance and technical_inspection
+    setupConditionalDateFields();
 });
+
+/**
+ * Настройка функционала "Другое" для radio кнопок
+ * Показывает текстовое поле когда выбрано "Другое"
+ */
+function setupOtherInputs() {
+    // Переводы слова "Другое" на всех языках
+    const otherTranslations = ['Другое', 'Other', 'Басқа', 'Boshqa'];
+
+    // Устанавливаем placeholder для всех текстовых полей "Другое"
+    const otherTextInputs = document.querySelectorAll('.other-text-input');
+    otherTextInputs.forEach(input => {
+        input.placeholder = t('other_placeholder');
+    });
+
+    const radioInputs = document.querySelectorAll('input[type="radio"]');
+
+    radioInputs.forEach(radio => {
+        radio.addEventListener('change', function() {
+            const fieldId = this.name; // name совпадает с id поля
+            const otherContainer = document.getElementById(`other_container_${fieldId}`);
+            const otherTextInput = document.getElementById(`other_text_${fieldId}`);
+
+            if (!otherContainer || !otherTextInput) return;
+
+            // Проверяем, выбрано ли "Другое" (на любом языке)
+            const isOther = otherTranslations.includes(this.value);
+
+            if (isOther) {
+                // Показываем текстовое поле
+                otherContainer.style.display = 'block';
+                otherTextInput.focus();
+            } else {
+                // Скрываем текстовое поле и очищаем его
+                otherContainer.style.display = 'none';
+                otherTextInput.value = '';
+            }
+        });
+    });
+}
+
+/**
+ * Управляет видимостью полей дат для страховки и техосмотра.
+ * Дата показывается только при выборе "Имеется" (первый вариант).
+ */
+function setupConditionalDateFields() {
+    // Переводы "Имеется" на всех языках (первый вариант = Да)
+    const yesTranslations = ['Имеется', 'Present', 'Бар', 'Bor'];
+
+    const conditionals = [
+        { radioName: 'insurance', dateCardId: 'card_insurance_end_date' },
+        { radioName: 'technical_inspection', dateCardId: 'card_technical_inspection_date' }
+    ];
+
+    conditionals.forEach(({ radioName, dateCardId }) => {
+        const radios = document.querySelectorAll(`input[name="${radioName}"]`);
+        const dateCard = document.getElementById(dateCardId);
+        if (!dateCard) return;
+
+        radios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                if (yesTranslations.includes(this.value)) {
+                    dateCard.style.display = 'block';
+                } else {
+                    dateCard.style.display = 'none';
+                    const dateInput = dateCard.querySelector('input[type="date"]');
+                    if (dateInput) dateInput.value = '';
+                }
+            });
+        });
+    });
+}
 
 let machinesData = [];
 let driversData = [];
 let mechanicsData = [];
+let departmentsData = [];
 
 async function loadMachines() {
     try {
@@ -88,12 +172,28 @@ async function loadMechanics() {
     }
 }
 
+async function loadDepartments() {
+    try {
+        const response = await fetch('/api/departments');
+        const departments = await response.json();
+        departmentsData = departments; // Cache for filtering
+        renderDropdownList(departments, 'department_uid', formatDepartment);
+    } catch (e) {
+        console.error("Failed to load departments:", e);
+        showError(t('loading_departments_error') || 'Failed to load departments');
+    }
+}
+
 function formatMachine(machine) {
     return `Модель: ${machine.model} | ГРНЗ: ${machine.license_plate || 'Нет ГРНЗ'} | ИН: ${machine.inventory_number}`;
 }
 
 function formatEmployee(employee) {
     return employee.full_name;
+}
+
+function formatDepartment(department) {
+    return department.name;
 }
 
 function renderDropdownList(items, fieldId, formatFunction) {
@@ -155,24 +255,46 @@ function renderDropdownList(items, fieldId, formatFunction) {
 
 function validateForm() {
     const cards = document.querySelectorAll('.question-card[data-required="True"]');
+    const otherTranslations = ['Другое', 'Other', 'Басқа', 'Boshqa'];
     let isValid = true;
     let firstErrorCard = null;
 
     cards.forEach(card => {
+        if (card.style.display === 'none') return; // пропускаем скрытые условные поля
+
+        const isOdometerGroup = card.classList.contains('odometer-group');
         const input = card.querySelector('input[type="text"], input[type="date"], input[type="number"]');
         const radios = card.querySelectorAll('input[type="radio"]');
         let filled = false;
 
-        if (input) {
+        if (isOdometerGroup) {
+            // Одометр: достаточно заполнить хотя бы одно поле
+            card.querySelectorAll('.odometer-input').forEach(inp => {
+                if (inp.value.trim() !== '') filled = true;
+            });
+        } else if (input && !input.classList.contains('other-text-input')) {
+            // Обычные текстовые поля (не "Другое")
             if (input.value.trim() !== '') {
                 filled = true;
             }
         } else if (radios.length > 0) {
+            // Radio кнопки
+            let selectedRadio = null;
             radios.forEach(radio => {
                 if (radio.checked) {
                     filled = true;
+                    selectedRadio = radio;
                 }
             });
+
+            // Если выбрано "Другое", проверяем заполнение текстового поля
+            if (selectedRadio && otherTranslations.includes(selectedRadio.value)) {
+                const fieldId = selectedRadio.name;
+                const otherTextInput = document.getElementById(`other_text_${fieldId}`);
+                if (!otherTextInput || otherTextInput.value.trim() === '') {
+                    filled = false;
+                }
+            }
         }
 
         if (!filled) {
@@ -206,6 +328,25 @@ async function submitForm() {
         data[key] = value;
     });
 
+    // Удаляем поля дат скрытых условных блоков, чтобы не отправлять их в Google Sheets
+    ['insurance_end_date', 'technical_inspection_date'].forEach(fieldId => {
+        const card = document.getElementById(`card_${fieldId}`);
+        if (card && card.style.display === 'none') {
+            delete data[fieldId];
+        }
+    });
+
+    // Обработка полей с "Другое" - заменяем на текст из текстового поля
+    const otherTranslations = ['Другое', 'Other', 'Басқа', 'Boshqa'];
+    Object.keys(data).forEach(key => {
+        if (otherTranslations.includes(data[key])) {
+            const otherTextInput = document.getElementById(`other_text_${key}`);
+            if (otherTextInput && otherTextInput.value.trim()) {
+                data[key] = otherTextInput.value.trim();
+            }
+        }
+    });
+
     // Add Telegram user_id and language for confirmation message
     console.log('Telegram WebApp object:', tg);
     console.log('initDataUnsafe:', tg.initDataUnsafe);
@@ -214,21 +355,29 @@ async function submitForm() {
     // Try multiple methods to get user_id
     let userId = null;
 
-    // Method 1: initDataUnsafe.user.id (standard way)
-    if (tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
-        userId = tg.initDataUnsafe.user.id;
-        console.log('✅ Method 1: user_id from initDataUnsafe:', userId);
+    // Method 1: From URL parameter (fallback for Desktop/problematic versions)
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlUserId = urlParams.get('tg_user_id');
+    if (urlUserId) {
+        userId = parseInt(urlUserId);
+        console.log('✅ Method 1: user_id from URL parameter:', userId);
     }
 
-    // Method 2: Parse initData string
+    // Method 2: initDataUnsafe.user.id (standard way)
+    if (!userId && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
+        userId = tg.initDataUnsafe.user.id;
+        console.log('✅ Method 2: user_id from initDataUnsafe:', userId);
+    }
+
+    // Method 3: Parse initData string
     if (!userId && tg.initData) {
         try {
-            const urlParams = new URLSearchParams(tg.initData);
-            const userJson = urlParams.get('user');
+            const initDataParams = new URLSearchParams(tg.initData);
+            const userJson = initDataParams.get('user');
             if (userJson) {
                 const user = JSON.parse(decodeURIComponent(userJson));
                 userId = user.id;
-                console.log('✅ Method 2: user_id parsed from initData:', userId);
+                console.log('✅ Method 3: user_id parsed from initData:', userId);
             }
         } catch (e) {
             console.error('Failed to parse initData:', e);

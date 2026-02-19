@@ -47,7 +47,14 @@ def get_field_label_map() -> Dict[str, str]:
     """Returns a map of {field_id: field_label} from form_config."""
     mapping = {}
     for item in form_config:
-        if 'id' in item and 'label' in item:
+        if 'id' not in item or 'label' not in item:
+            continue
+        if item.get('type') == 'odometer_group':
+            # Группа декоративная — маппим только подпункты, не сам "Одометр"
+            for field in item.get('fields', []):
+                if 'id' in field and 'label' in field:
+                    mapping[field['id']] = field['label']
+        else:
             mapping[item['id']] = item['label']
     return mapping
 

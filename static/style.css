@@ -200,3 +200,70 @@ body {
     background-color: rgba(0,0,0,0.2);
     border-radius: 3px;
 }
+
+/* Подсказка к полю */
+.field-hint {
+    display: block;
+    font-size: 12px;
+    color: #5f6368;
+    font-weight: 400;
+    margin-top: 2px;
+}
+
+/* Одометр — группировка Моточасы и Километраж */
+.odometer-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.odometer-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.odometer-label-side {
+    flex: 1;
+    min-width: 0;
+}
+
+.odometer-sub-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-color);
+}
+
+input.odometer-input {
+    width: 120px;
+    flex-shrink: 0;
+    text-align: right;
+    box-sizing: border-box;
+}
+
+/* "Другое" текстовое поле */
+.other-input-container {
+    margin-top: 10px;
+}
+
+.other-text-input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+    background-color: #f8f9fa;
+}
+
+.other-text-input:focus {
+    border-color: var(--primary-color);
+    background-color: #fff;
+}
+
+.other-text-input::placeholder {
+    color: #5f6368;
+}

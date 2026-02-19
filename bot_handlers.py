@@ -71,8 +71,11 @@ async def process_language_selection(message: types.Message):
 
     lang_code = lang_map.get(message.text, "ru")
 
-    # Формируем URL с параметром языка
-    app_url = f"{WEB_APP_URL}?lang={lang_code}"
+    # Формируем URL с параметром языка и user_id (fallback для Desktop версий)
+    user_id = message.from_user.id
+    app_url = f"{WEB_APP_URL}?lang={lang_code}&tg_user_id={user_id}"
+
+    logging.info(f"Opening Mini App for user {user_id} with language {lang_code}")
 
     # Создаем клавиатуру с кнопкой для открытия Mini App + кнопка смены языка
     button_text = get_bot_message("fill_form_button", lang_code)

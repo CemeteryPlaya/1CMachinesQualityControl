@@ -14,6 +14,9 @@ ODATA_PASSWORD = os.getenv("ODATA_PASSWORD")
 ODATA_POSITIONS_URL = os.getenv("ODATA_POSITIONS_URL")
 ODATA_EMPLOYEES_URL = os.getenv("ODATA_EMPLOYEES_URL")
 
+# URL для подразделений
+ODATA_DEPARTMENT_URL = os.getenv("ODATA_DEPARTMENT_URL")
+
 # === НОВОЕ: базовый URL для OData (без конкретного справочника) ===
 # Пример: http://192.168.1.77/HiTechMat/odata/standard.odata
 ODATA_BASE_URL = os.getenv("ODATA_BASE_URL")
@@ -368,3 +371,101 @@ def _fetch_employees_fallback(
     except Exception as e:
         logger.error(f"Fallback fetch_employees error: {e}")
         return get_all_employees()
+
+
+# ============================================================
+# DEPARTMENTS (Подразделения)
+# ============================================================
+
+def sync_departments() -> List[Dict[str, Any]]:
+    """Синхронизирует подразделения из 1С и возвращает список"""
+    return fetch_departments()
+
+
+def fetch_departments() -> List[Dict[str, Any]]:
+    """
+    Получает подразделения из 1С OData с фильтрацией:
+    - Description начинается с "КУП"
+    - Parent_Key = "f65d5f0a-33bb-11f0-9341-d8bbc163ec30"
+    """
+    from database import upsert_department, get_all_departments
+
+    if not ODATA_DEPARTMENT_URL:
+        logger.warning("ODATA_DEPARTMENT_URL not set. Returning local data.")
+        return get_all_departments()
+
+    try:
+        logger.info(f"Fetching departments from: {ODATA_DEPARTMENT_URL}")
+        data = _odata_get(ODATA_DEPARTMENT_URL)
+        departments_from_1c = data.get("value", [])
+
+        logger.info(f"Received {len(departments_from_1c)} total departments from 1C")
+
+        # Выводим структуру первого элемента для отладки
+        if departments_from_1c:
+            logger.info(f"Sample department keys: {list(departments_from_1c[0].keys())}")
+            logger.info(f"First 3 departments sample:")
+            for i, dept in enumerate(departments_from_1c[:3]):
+                logger.info(f"  {i+1}. Description: '{dept.get('Description', 'N/A')}', "
+                           f"Parent_Key: '{dept.get('Parent_Key', 'N/A')}', "
+                           f"Ref_Key: '{dept.get('Ref_Key', 'N/A')}'")
+
+        # Фильтруем и сохраняем в БД
+        filtered_departments = []
+        target_ref_key = "f65d5f0a-33bb-11f0-9341-d8bbc163ec30"
+
+        kup_count = 0
+        special_dept_count = 0
+
+        logger.info(f"Filter: Description starts with 'КУП' OR Ref_Key = '{target_ref_key}'")
+
+        for dept in departments_from_1c:
+            description = dept.get("Description", "")
+            ref_key = dept.get("Ref_Key", "")
+
+            # Логика OR: либо начинается с "КУП", либо это специальное подразделение
+            is_kup = description.startswith("КУП")
+            is_special = ref_key == target_ref_key
+
+            if not (is_kup or is_special):
+                continue
+
+            if is_kup:
+                kup_count += 1
+                logger.info(f"✅ КУП dept #{kup_count}: '{description}'")
+
+            if is_special:
+                special_dept_count += 1
+                logger.info(f"✅ Special dept (by Ref_Key): '{description}'")
+
+            # Проходит фильтры - добавляем
+            department_code = dept.get("Code") or ref_key
+
+            logger.debug(f"Adding department: {description} (code: {department_code})")
+
+            upsert_department(
+                department_code=str(department_code),
+                name=str(description),
+                ref_key=str(ref_key)
+            )
+
+            filtered_departments.append({
+                "department_code": department_code,
+                "name": description,
+                "ref_key": ref_key
+            })
+
+        logger.info(
+            f"Filter results: {len(departments_from_1c)} total, "
+            f"{kup_count} start with 'КУП', "
+            f"{special_dept_count} special (by Ref_Key), "
+            f"{len(filtered_departments)} final synced"
+        )
+        return get_all_departments()
+
+    except requests.RequestException as e:
+        logger.error(f"Error fetching departments from 1C: {e}. Switching to offline mode.")
+        return get_all_departments()
+    except Exception as e:
+        logger.error(f"Unexpected error in fetch_departments: {e}")
+        return get_all_departments()

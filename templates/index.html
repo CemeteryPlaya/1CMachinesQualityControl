@@ -20,7 +20,8 @@
             "loading_drivers_error": "{{ {'ru': 'Не удалось загрузить список водителей', 'en': 'Failed to load drivers list', 'kk': 'Жүргізушілер тізімін жүктеу мүмкін болмады', 'uz': 'Haydovchilar ro\'yxatini yuklash muvaffaqiyatsiz tugadi'}[lang] }}",
             "loading_mechanics_error": "{{ {'ru': 'Не удалось загрузить список механиков', 'en': 'Failed to load mechanics list', 'kk': 'Механиктер тізімін жүктеу мүмкін болмады', 'uz': 'Mexaniklar ro\'yxatini yuklash muvaffaqiyatsiz tugadi'}[lang] }}",
             "submission_error": "{{ {'ru': 'Ошибка при отправке', 'en': 'Submission error', 'kk': 'Жіберу қатесі', 'uz': 'Yuborish xatosi'}[lang] }}",
-            "network_error": "{{ {'ru': 'Ошибка сети. Попробуйте еще раз.', 'en': 'Network error. Please try again.', 'kk': 'Желі қатесі. Қайталап көріңіз.', 'uz': 'Tarmoq xatosi. Iltimos, qayta urinib ko\'ring.'}[lang] }}"
+            "network_error": "{{ {'ru': 'Ошибка сети. Попробуйте еще раз.', 'en': 'Network error. Please try again.', 'kk': 'Желі қатесі. Қайталап көріңіз.', 'uz': 'Tarmoq xatosi. Iltimos, qayta urinib ko\'ring.'}[lang] }}",
+            "other_placeholder": "{{ {'ru': 'Укажите свой вариант', 'en': 'Specify your option', 'kk': 'Өз нұсқаңызды көрсетіңіз', 'uz': 'Oz variantingizni kiriting'}[lang] }}"
         };
     </script>
 </head>
@@ -45,14 +46,31 @@
                         <div class="error-msg">Это поле обязательно</div>
                     </div>
                 {% elif item.type == 'date' %}
-                    <div class="question-card" data-required="{{ item.required }}">
+                    <div class="question-card" data-required="{{ item.required }}" id="card_{{ item.id }}"{% if item.get('initially_hidden') %} style="display:none"{% endif %}>
                         <label for="{{ item.id }}" class="question-label">{{ item.label }} {% if item.required %} <span class="required">*</span> {% endif %}</label>
                         <input type="date" id="{{ item.id }}" name="{{ item.id }}" class="text-input">
                         <div class="error-msg">Это поле обязательно</div>
                     </div>
+                {% elif item.type == 'odometer_group' %}
+                    <div class="question-card odometer-group" data-required="{{ item.required }}" id="card_{{ item.id }}">
+                        <label class="question-label">{{ item.label }} {% if item.required %} <span class="required">*</span> {% endif %}</label>
+                        <div class="odometer-fields">
+                            {% for field in item.fields %}
+                            <div class="odometer-row">
+                                <div class="odometer-label-side">
+                                    <span class="odometer-sub-label">{{ field.label }}</span>
+                                    {% if field.hint %}<span class="field-hint">{{ field.hint }}</span>{% endif %}
+                                </div>
+                                <input type="number" id="{{ field.id }}" name="{{ field.id }}" class="text-input odometer-input" placeholder="0" min="0">
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <div class="error-msg">Заполните хотя бы одно поле</div>
+                    </div>
                 {% elif item.type == 'number' %}
                     <div class="question-card" data-required="{{ item.required }}">
                         <label for="{{ item.id }}" class="question-label">{{ item.label }} {% if item.required %} <span class="required">*</span> {% endif %}</label>
+                        {% if item.hint %}<span class="field-hint">{{ item.hint }}</span>{% endif %}
                         <input type="number" id="{{ item.id }}" name="{{ item.id }}" class="text-input" placeholder="0">
                         <div class="error-msg">Это поле обязательно</div>
                     </div>
@@ -71,7 +89,7 @@
                             {% elif item.id == 'mechanic_uid' %}
                                 <input type="text" id="search_{{ item.id }}" class="text-input search-input" placeholder="Поиск механика..." autocomplete="off">
                             {% else %}
-                                <input type="text" id="search_{{ item.id }}" class="text-input search-input" placeholder="Поиск..." autocomplete="off">
+                                <input type="text" id="search_{{ item.id }}" class="text-input search-input" placeholder="Поиск структурного подразделения..." autocomplete="off">
                             {% endif %}
                             <input type="hidden" id="{{ item.id }}" name="{{ item.id }}">
                             <div id="dropdown_{{ item.id }}" class="custom-dropdown-list" style="display: none;">
@@ -80,6 +98,8 @@
                         </div>
                         {% if item.id == 'machine_uid' %}
                             <div class="error-msg">Выберите машину из списка</div>
+                        {% elif item.id == 'department_uid' %}
+                            <div class="error-msg">Выберите структурное подразделение из списка</div>
                         {% elif item.id == 'driver_uid' %}
                             <div class="error-msg">Выберите водителя из списка</div>
                         {% elif item.id == 'mechanic_uid' %}
@@ -94,10 +114,14 @@
                         <div class="radio-group">
                             {% for option in item.options %}
                             <label class="radio-option">
-                                <input type="radio" name="{{ item.id }}" value="{{ option }}">
+                                <input type="radio" name="{{ item.id }}" value="{{ option }}" class="radio-input" data-field-id="{{ item.id }}">
                                 <span>{{ option }}</span>
                             </label>
                             {% endfor %}
+                        </div>
+                        <!-- Текстовое поле для "Другое" (скрыто по умолчанию) -->
+                        <div class="other-input-container" id="other_container_{{ item.id }}" style="display: none; margin-top: 10px;">
+                            <input type="text" class="other-text-input" id="other_text_{{ item.id }}" placeholder="">
                         </div>
                         <div class="error-msg">Это поле обязательно</div>
                     </div>

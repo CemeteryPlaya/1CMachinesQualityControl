@@ -70,6 +70,12 @@ if __name__ == "__main__":
     except Exception as e:
         logger.error(f"Failed to sync employees: {e}")
 
+    try:
+        departments = odata_service.sync_departments()
+        logger.info(f"Loaded {len(departments)} departments from 1C/DB")
+    except Exception as e:
+        logger.error(f"Failed to sync departments: {e}")
+
     # Start Flask in a separate thread
     flask_thread = threading.Thread(target=run_flask)
     flask_thread.daemon = True # Daemon thread exits when main thread exits

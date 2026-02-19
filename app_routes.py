@@ -3,11 +3,11 @@ from form_config import get_form_config
 from sheets_service import append_inspection_data
 from datetime import datetime
 import odata_service
-from database import get_machine_by_id, get_all_machines, get_employee_by_id, get_employees_by_position
+from database import get_machine_by_id, get_all_machines, get_employee_by_id, get_employees_by_position, get_department_by_id
 import logging
-import asyncio
 import threading
-from bot_instance import bot
+import requests
+from bot_instance import BOT_TOKEN
 from translations import get_bot_message
 
 app_bp = Blueprint('app', __name__)
@@ -85,12 +85,26 @@ def submit_form():
             except ValueError:
                 pass
 
+        # Обработка одометра: пустые поля заменяем на 0
+        for odometer_field in ('motorhours', 'mileage'):
+            if not data.get(odometer_field):
+                data[odometer_field] = '0'
+
+        # Обработка подразделения
+        department_uid = data.get('department_uid')
+        if department_uid:
+            department = get_department_by_id(department_uid)
+            if department:
+                data['department_uid'] = department['name']
+            else:
+                logger.warning(f"Department with ID {department_uid} not found")
+
         # Обработка водителя
         driver_uid = data.get('driver_uid')
         if driver_uid:
             driver = get_employee_by_id(driver_uid)
             if driver:
-                formatted_driver = f"{driver['full_name']} (Водитель)"
+                formatted_driver = f"{driver['full_name']}"
                 data['driver_uid'] = formatted_driver
                 data['driver_name'] = driver['full_name']
             else:
@@ -101,7 +115,7 @@ def submit_form():
         if mechanic_uid:
             mechanic = get_employee_by_id(mechanic_uid)
             if mechanic:
-                formatted_mechanic = f"{mechanic['full_name']} (Механик)"
+                formatted_mechanic = f"{mechanic['full_name']}"
                 data['mechanic_uid'] = formatted_mechanic
                 data['mechanic_name'] = mechanic['full_name']
             else:
@@ -146,20 +160,26 @@ def submit_form():
                 logger.info(f"Preparing to send confirmation message to user {telegram_user_id}")
 
                 # Send message in background thread to not block response
-                def send_message_async():
+                def send_message_sync():
                     logger.info(f"Background thread started for user {telegram_user_id}")
                     try:
-                        loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(loop)
+                        # Use Telegram Bot API directly via requests (sync)
+                        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+                        payload = {
+                            "chat_id": telegram_user_id,
+                            "text": confirmation_text
+                        }
                         logger.info(f"Sending message to chat_id={telegram_user_id}: {confirmation_text}")
-                        loop.run_until_complete(bot.send_message(chat_id=telegram_user_id, text=confirmation_text))
-                        loop.close()
+
+                        response = requests.post(url, json=payload, timeout=10)
+                        response.raise_for_status()
+
                         logger.info(f"✅ Confirmation message sent successfully to user {telegram_user_id}")
                     except Exception as e:
                         logger.error(f"❌ Failed to send confirmation message to {telegram_user_id}: {e}", exc_info=True)
 
                 # Start background thread
-                thread = threading.Thread(target=send_message_async, name=f"TelegramBot-{telegram_user_id}")
+                thread = threading.Thread(target=send_message_sync, name=f"TelegramBot-{telegram_user_id}")
                 thread.daemon = True
                 thread.start()
                 logger.info(f"Background thread started: {thread.name}")
@@ -207,4 +227,18 @@ def get_mechanics():
         return jsonify(mechanics)
     except Exception as e:
         logger.error(f"Error in /api/mechanics: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app_bp.route('/api/departments', methods=['GET'])
+def get_departments():
+    """Returns list of departments from 1C (or local DB fallback)."""
+    try:
+        from database import get_all_departments
+        # Trigger sync/fetch for departments
+        odata_service.sync_departments()
+        # Get all departments
+        departments = get_all_departments()
+        return jsonify(departments)
+    except Exception as e:
+        logger.error(f"Error in /api/departments: {e}")
         return jsonify({"error": str(e)}), 500
