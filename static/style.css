@@ -125,6 +125,28 @@ body {
     display: flex;
 }
 
+.radio-warning {
+    margin-top: 10px;
+    padding: 10px 14px;
+    background-color: #fce4ec;
+    border-left: 3px solid #e53935;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #b71c1c;
+    line-height: 1.4;
+}
+
+.conditional-note {
+    margin-top: 10px;
+    padding: 10px 14px;
+    background-color: #fff8e1;
+    border-left: 3px solid #ffc107;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #5d4037;
+    line-height: 1.4;
+}
+
 .question-card.error .text-input {
     border-bottom-color: var(--error-color);
 }

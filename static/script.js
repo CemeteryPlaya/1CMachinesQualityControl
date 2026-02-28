@@ -5,6 +5,29 @@ function t(key) {
     return window.TRANSLATIONS && window.TRANSLATIONS[key] ? window.TRANSLATIONS[key] : key;
 }
 
+function updateConditionalNote(fieldId, selectedText) {
+    const noteEl = document.getElementById(`note_${fieldId}`);
+    if (!noteEl) return;
+
+    const notes = JSON.parse(noteEl.dataset.notes);
+    let matchedNote = null;
+
+    for (const [key, text] of Object.entries(notes)) {
+        if (selectedText.includes(key)) {
+            matchedNote = text;
+            break;
+        }
+    }
+
+    if (matchedNote) {
+        noteEl.textContent = matchedNote;
+        noteEl.style.display = 'block';
+    } else {
+        noteEl.textContent = '';
+        noteEl.style.display = 'none';
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize Telegram WebApp
     tg.ready();
@@ -73,6 +96,18 @@ function setupOtherInputs() {
         input.placeholder = t('other_placeholder');
     });
 
+    // Переводы значений, при которых показываем предупреждение
+    const warningTriggers = [
+        'Не нормальное', 'Not normal', 'Қалыпсыз', 'Normal emas',
+        'Отсутствует', 'Absent', 'Жоқ', "Yo'q"
+    ];
+
+    // Переводы значений для альтернативного предупреждения
+    const warningAltTriggers = [
+        'Нормальное', 'Normal', 'Қалыпты', 'Normal',
+        'Имеется', 'Present', 'Бар', 'Bor'
+    ];
+
     const radioInputs = document.querySelectorAll('input[type="radio"]');
 
     radioInputs.forEach(radio => {
@@ -81,19 +116,31 @@ function setupOtherInputs() {
             const otherContainer = document.getElementById(`other_container_${fieldId}`);
             const otherTextInput = document.getElementById(`other_text_${fieldId}`);
 
-            if (!otherContainer || !otherTextInput) return;
+            if (otherContainer && otherTextInput) {
+                // Проверяем, выбрано ли "Другое" (на любом языке)
+                const isOther = otherTranslations.includes(this.value);
 
-            // Проверяем, выбрано ли "Другое" (на любом языке)
-            const isOther = otherTranslations.includes(this.value);
+                if (isOther) {
+                    otherContainer.style.display = 'block';
+                    otherTextInput.focus();
+                } else {
+                    otherContainer.style.display = 'none';
+                    otherTextInput.value = '';
+                }
+            }
 
-            if (isOther) {
-                // Показываем текстовое поле
-                otherContainer.style.display = 'block';
-                otherTextInput.focus();
-            } else {
-                // Скрываем текстовое поле и очищаем его
-                otherContainer.style.display = 'none';
-                otherTextInput.value = '';
+            // Показ/скрытие предупреждения
+            const warningEl = document.getElementById(`warning_${fieldId}`);
+            if (warningEl) {
+                const isWarning = warningTriggers.includes(this.value);
+                warningEl.style.display = isWarning ? 'block' : 'none';
+            }
+
+            // Показ/скрытие альтернативного предупреждения
+            const warningAltEl = document.getElementById(`warning_alt_${fieldId}`);
+            if (warningAltEl) {
+                const isAltWarning = warningAltTriggers.includes(this.value);
+                warningAltEl.style.display = isAltWarning ? 'block' : 'none';
             }
         });
     });
@@ -138,7 +185,7 @@ let departmentsData = [];
 
 async function loadMachines() {
     try {
-        const response = await fetch('/api/machines');
+        const response = await fetch('api/machines');
         const machines = await response.json();
         machinesData = machines; // Cache for filtering
         renderDropdownList(machines, 'machine_uid', formatMachine);
@@ -150,7 +197,7 @@ async function loadMachines() {
 
 async function loadDrivers() {
     try {
-        const response = await fetch('/api/drivers');
+        const response = await fetch('api/drivers');
         const drivers = await response.json();
         driversData = drivers; // Cache for filtering
         renderDropdownList(drivers, 'driver_uid', formatEmployee);
@@ -162,7 +209,7 @@ async function loadDrivers() {
 
 async function loadMechanics() {
     try {
-        const response = await fetch('/api/mechanics');
+        const response = await fetch('api/mechanics');
         const mechanics = await response.json();
         mechanicsData = mechanics; // Cache for filtering
         renderDropdownList(mechanics, 'mechanic_uid', formatEmployee);
@@ -174,7 +221,7 @@ async function loadMechanics() {
 
 async function loadDepartments() {
     try {
-        const response = await fetch('/api/departments');
+        const response = await fetch('api/departments');
         const departments = await response.json();
         departmentsData = departments; // Cache for filtering
         renderDropdownList(departments, 'department_uid', formatDepartment);
@@ -217,6 +264,7 @@ function renderDropdownList(items, fieldId, formatFunction) {
             hiddenInput.value = item.id;
             listContainer.style.display = 'none';
             searchInput.closest('.question-card').classList.remove('error');
+            updateConditionalNote(fieldId, dropdownItem.textContent);
         });
 
         listContainer.appendChild(dropdownItem);
@@ -405,10 +453,15 @@ async function submitForm() {
         console.log('✅ Language captured:', window.APP_LANG);
     }
 
+    if (window.APP_FORM_TYPE) {
+        data['form_type'] = window.APP_FORM_TYPE;
+        console.log('✅ Form type captured:', window.APP_FORM_TYPE);
+    }
+
     console.log('📤 Submitting data:', JSON.stringify(data, null, 2));
 
     try {
-        const response = await fetch('/submit', {
+        const response = await fetch('submit', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'

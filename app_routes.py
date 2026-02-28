@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, jsonify
-from form_config import get_form_config
+from importlib import import_module
 from sheets_service import append_inspection_data
 from datetime import datetime
 import odata_service
@@ -13,6 +13,40 @@ from translations import get_bot_message
 app_bp = Blueprint('app', __name__)
 logger = logging.getLogger(__name__)
 
+FORM_CONFIG_MODULES = {
+    "lv": "lv_form_config",
+    "lv_oa": "lv_oa_form_config",
+    "sv": "sv_form_config",
+    "sv_oa": "sv_oa_form_config",
+}
+
+FORM_TITLES = {
+    "lv": {
+        "ru": "Чек-лист инспекции легкового транспорта",
+        "en": "Passenger Vehicle Inspection Checklist",
+        "kk": "Жеңіл көлікті тексеру тізімі",
+        "uz": "Yengil avtomobil tekshiruv ro'yxati"
+    },
+    "lv_oa": {
+        "ru": "Чек-лист инспекции легкового транспорта (выезд)",
+        "en": "Passenger Vehicle Inspection Checklist (off-site)",
+        "kk": "Жеңіл көлікті тексеру тізімі (шығу)",
+        "uz": "Yengil avtomobil tekshiruv ro'yxati (tashqarida)"
+    },
+    "sv": {
+        "ru": "Чек-лист инспекции спецтехники",
+        "en": "Special Equipment Inspection Checklist",
+        "kk": "Арнайы техниканы тексеру тізімі",
+        "uz": "Maxsus texnika tekshiruv ro'yxati"
+    },
+    "sv_oa": {
+        "ru": "Чек-лист инспекции спецтехники (выезд)",
+        "en": "Special Equipment Inspection Checklist (off-site)",
+        "kk": "Арнайы техниканы тексеру тізімі (шығу)",
+        "uz": "Maxsus texnika tekshiruv ro'yxati (tashqarida)"
+    },
+}
+
 @app_bp.route('/')
 def index():
     """Renders the inspection form with language support."""
@@ -23,21 +57,24 @@ def index():
     if lang not in ['ru', 'en', 'kk', 'uz']:
         lang = 'ru'
 
-    # Получаем конфигурацию формы для выбранного языка
-    form_config = get_form_config(lang)
+    # Получаем тип формы из параметров URL
+    form_type = request.args.get('form_type', 'lv')
+    if form_type not in FORM_CONFIG_MODULES:
+        form_type = 'lv'
 
-    # Заголовки в зависимости от языка
-    titles = {
-        "ru": "Чек-лист инспекции спецтехники",
-        "en": "Equipment Inspection Checklist",
-        "kk": "Техниканы тексеру тізімі",
-        "uz": "Texnika tekshiruv ro'yxati"
-    }
+    # Динамически загружаем нужный модуль конфигурации
+    module_name = FORM_CONFIG_MODULES[form_type]
+    config_module = import_module(module_name)
+    form_config = config_module.get_form_config(lang)
+
+    # Заголовки в зависимости от типа формы и языка
+    titles = FORM_TITLES.get(form_type, FORM_TITLES["lv"])
 
     return render_template('index.html',
                            title=titles.get(lang, titles['ru']),
                            questions=form_config,
-                           lang=lang)
+                           lang=lang,
+                           form_type=form_type)
 
 @app_bp.route('/api/machines', methods=['GET'])
 def get_machines():

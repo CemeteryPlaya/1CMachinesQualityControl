@@ -4,12 +4,25 @@ from typing import List, Dict, Any, Optional
 import gspread
 from google.oauth2.service_account import Credentials
 from dotenv import load_dotenv
-from form_config import get_form_config
+from importlib import import_module
 
 load_dotenv()
 
-# Load config to get labels
-form_config = get_form_config()
+FORM_CONFIG_MODULES = {
+    "lv": "lv_form_config",
+    "lv_oa": "lv_oa_form_config",
+    "sv": "sv_form_config",
+    "sv_oa": "sv_oa_form_config",
+}
+
+
+def _load_form_config(form_type: str = "lv") -> List[Dict[str, Any]]:
+    """Loads form config for the given form type."""
+    if form_type not in FORM_CONFIG_MODULES:
+        form_type = "lv"
+    module_name = FORM_CONFIG_MODULES[form_type]
+    config_module = import_module(module_name)
+    return config_module.get_form_config("ru")
 
 logger = logging.getLogger(__name__)
 
@@ -43,10 +56,10 @@ def get_service():
         logger.error(f"Failed to authorize Google Sheets: {e}")
         return None
 
-def get_field_label_map() -> Dict[str, str]:
+def get_field_label_map(form_type: str = "lv") -> Dict[str, str]:
     """Returns a map of {field_id: field_label} from form_config."""
     mapping = {}
-    for item in form_config:
+    for item in _load_form_config(form_type):
         if 'id' not in item or 'label' not in item:
             continue
         if item.get('type') == 'odometer_group':
@@ -61,15 +74,16 @@ def get_field_label_map() -> Dict[str, str]:
 def append_inspection_data(data: Dict[str, Any], sheet_name: str = 'Ответы на форму (1)') -> bool:
     client = get_service()
     if not client: return False
-    
+
     try:
         # Открываем таблицу и лист
         spreadsheet = client.open_by_key(SPREADSHEET_ID)
         sheet = spreadsheet.worksheet(sheet_name)
-        
+
         # Читаем заголовки
         header_row = sheet.row_values(1)
-        field_map = get_field_label_map()
+        form_type = data.get('form_type', 'lv')
+        field_map = get_field_label_map(form_type)
         header_index_map = {title.strip(): i for i, title in enumerate(header_row)}
         
         row_values = [""] * len(header_row)

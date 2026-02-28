@@ -14,6 +14,7 @@
     <!-- Translations -->
     <script>
         window.APP_LANG = "{{ lang }}";
+        window.APP_FORM_TYPE = "{{ form_type }}";
         window.TRANSLATIONS = {
             "submit_button": "{{ {'ru': 'ОТПРАВИТЬ', 'en': 'SUBMIT', 'kk': 'ЖІБЕРУ', 'uz': 'YUBORISH'}[lang] }}",
             "loading_machines_error": "{{ {'ru': 'Не удалось загрузить список машин', 'en': 'Failed to load machines list', 'kk': 'Машиналар тізімін жүктеу мүмкін болмады', 'uz': 'Mashinalar ro\'yxatini yuklash muvaffaqiyatsiz tugadi'}[lang] }}",
@@ -107,6 +108,12 @@
                         {% else %}
                             <div class="error-msg">Это поле обязательно</div>
                         {% endif %}
+                        {% if item.conditional_notes %}
+                            <div class="conditional-note" id="note_{{ item.id }}" style="display: none;"
+                                 data-field-id="{{ item.id }}"
+                                 data-notes='{{ item.conditional_notes | tojson }}'>
+                            </div>
+                        {% endif %}
                     </div>
                 {% elif item.type == 'radio' %}
                     <div class="question-card" data-required="{{ item.required }}" id="card_{{ item.id }}">
@@ -123,6 +130,16 @@
                         <div class="other-input-container" id="other_container_{{ item.id }}" style="display: none; margin-top: 10px;">
                             <input type="text" class="other-text-input" id="other_text_{{ item.id }}" placeholder="">
                         </div>
+                        {% if item.warning_text %}
+                            <div class="radio-warning" id="warning_{{ item.id }}" style="display: none;">
+                                {{ item.warning_text }}
+                            </div>
+                        {% endif %}
+                        {% if item.warning_text_alt %}
+                            <div class="radio-warning" id="warning_alt_{{ item.id }}" style="display: none;">
+                                {{ item.warning_text_alt }}
+                            </div>
+                        {% endif %}
                         <div class="error-msg">Это поле обязательно</div>
                     </div>
                 {% endif %}
