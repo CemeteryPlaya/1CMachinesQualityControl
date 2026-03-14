@@ -8,31 +8,55 @@ Supported languages: Russian (ru), English (en), Kazakh (kk), Uzbek (uz)
 BOT_MESSAGES = {
     "ru": {
         "welcome": "Здравствуйте! Выберите язык для заполнения формы инспекции спецтехники:",
-        "language_selected": "Язык выбран: Русский\n\nНажмите кнопку ниже, чтобы открыть форму:",
+        "language_selected": "Язык выбран: Русский\n\nВыберите тип техники и вид работы:",
+        "select_vehicle_type": "Выберите тип техники и вид работы:",
         "fill_form_button": "📝 Заполнить чек-лист",
         "submission_confirmed": "✅ Чек-лист отправлен.\nДата и время отправки: {datetime}",
-        "other_placeholder": "Укажите свой вариант"
+        "other_placeholder": "Укажите свой вариант",
+        "vehicle_lv": "🚗 Легковые — на территории",
+        "vehicle_lv_oa": "🚗 Легковые — выезд",
+        "vehicle_sv": "🚜 Спецтехника — на территории",
+        "vehicle_sv_oa": "🚜 Спецтехника — выезд",
+        "change_vehicle_type": "🔀 Выбрать другой тип техники"
     },
     "en": {
         "welcome": "Hello! Select a language to fill out the equipment inspection form:",
-        "language_selected": "Language selected: English\n\nClick the button below to open the form:",
+        "language_selected": "Language selected: English\n\nSelect vehicle type and work location:",
+        "select_vehicle_type": "Select vehicle type and work location:",
         "fill_form_button": "📝 Fill out checklist",
         "submission_confirmed": "✅ Checklist submitted.\nSubmission date and time: {datetime}",
-        "other_placeholder": "Specify your option"
+        "other_placeholder": "Specify your option",
+        "vehicle_lv": "🚗 Passenger — on-site",
+        "vehicle_lv_oa": "🚗 Passenger — off-site",
+        "vehicle_sv": "🚜 Special equipment — on-site",
+        "vehicle_sv_oa": "🚜 Special equipment — off-site",
+        "change_vehicle_type": "🔀 Select different vehicle type"
     },
     "kk": {
         "welcome": "Сәлеметсіз бе! Техника тексеру нысанын толтыру үшін тілді таңдаңыз:",
-        "language_selected": "Тіл таңдалды: Қазақша\n\nНысанды ашу үшін төмендегі батырманы басыңыз:",
+        "language_selected": "Тіл таңдалды: Қазақша\n\nТехника түрін және жұмыс түрін таңдаңыз:",
+        "select_vehicle_type": "Техника түрін және жұмыс түрін таңдаңыз:",
         "fill_form_button": "📝 Тексеру тізімін толтыру",
         "submission_confirmed": "✅ Тексеру тізімі жіберілді.\nЖіберу күні мен уақыты: {datetime}",
-        "other_placeholder": "Өз нұсқаңызды көрсетіңіз"
+        "other_placeholder": "Өз нұсқаңызды көрсетіңіз",
+        "vehicle_lv": "🚗 Жеңіл көлік — аумақта",
+        "vehicle_lv_oa": "🚗 Жеңіл көлік — шығу",
+        "vehicle_sv": "🚜 Арнайы техника — аумақта",
+        "vehicle_sv_oa": "🚜 Арнайы техника — шығу",
+        "change_vehicle_type": "🔀 Басқа техника түрін таңдау"
     },
     "uz": {
         "welcome": "Assalomu aleykum! Texnika tekshirish formasini to'ldirish uchun tilni tanlang:",
-        "language_selected": "Til tanlandi: O'zbekcha\n\nFormani ochish uchun quyidagi tugmani bosing:",
+        "language_selected": "Til tanlandi: O'zbekcha\n\nTexnika turini va ish joyini tanlang:",
+        "select_vehicle_type": "Texnika turini va ish joyini tanlang:",
         "fill_form_button": "📝 Tekshiruv ro'yxatini to'ldirish",
         "submission_confirmed": "✅ Tekshiruv ro'yxati yuborildi.\nYuborish sanasi va vaqti: {datetime}",
-        "other_placeholder": "Oz variantingizni kiriting"
+        "other_placeholder": "Oz variantingizni kiriting",
+        "vehicle_lv": "🚗 Yengil avtomobil — hududda",
+        "vehicle_lv_oa": "🚗 Yengil avtomobil — tashqarida",
+        "vehicle_sv": "🚜 Maxsus texnika — hududda",
+        "vehicle_sv_oa": "🚜 Maxsus texnika — tashqarida",
+        "change_vehicle_type": "🔀 Boshqa texnika turini tanlash"
     }
 }
 

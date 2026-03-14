@@ -1,9 +1,12 @@
+import os
 from flask import Blueprint, render_template, request, jsonify
-from form_config import get_form_config
-from sheets_service import append_inspection_data
+from importlib import import_module
 from datetime import datetime
 import odata_service
-from database import get_machine_by_id, get_all_machines, get_employee_by_id, get_employees_by_position, get_department_by_id
+from database import (get_machine_by_id, get_all_machines, get_employee_by_id,
+                       get_employees_by_position, get_department_by_id,
+                       get_all_departments, save_inspection,
+                       save_inspection_from_sheets)
 import logging
 import threading
 import requests
@@ -12,6 +15,40 @@ from translations import get_bot_message
 
 app_bp = Blueprint('app', __name__)
 logger = logging.getLogger(__name__)
+
+FORM_CONFIG_MODULES = {
+    "lv": "lv_form_config",
+    "lv_oa": "lv_oa_form_config",
+    "sv": "sv_form_config",
+    "sv_oa": "sv_oa_form_config",
+}
+
+FORM_TITLES = {
+    "lv": {
+        "ru": "Чек-лист инспекции легкового транспорта",
+        "en": "Passenger Vehicle Inspection Checklist",
+        "kk": "Жеңіл көлікті тексеру тізімі",
+        "uz": "Yengil avtomobil tekshiruv ro'yxati"
+    },
+    "lv_oa": {
+        "ru": "Чек-лист инспекции легкового транспорта (выезд)",
+        "en": "Passenger Vehicle Inspection Checklist (off-site)",
+        "kk": "Жеңіл көлікті тексеру тізімі (шығу)",
+        "uz": "Yengil avtomobil tekshiruv ro'yxati (tashqarida)"
+    },
+    "sv": {
+        "ru": "Чек-лист инспекции спецтехники",
+        "en": "Special Equipment Inspection Checklist",
+        "kk": "Арнайы техниканы тексеру тізімі",
+        "uz": "Maxsus texnika tekshiruv ro'yxati"
+    },
+    "sv_oa": {
+        "ru": "Чек-лист инспекции спецтехники (выезд)",
+        "en": "Special Equipment Inspection Checklist (off-site)",
+        "kk": "Арнайы техниканы тексеру тізімі (шығу)",
+        "uz": "Maxsus texnika tekshiruv ro'yxati (tashqarida)"
+    },
+}
 
 @app_bp.route('/')
 def index():
@@ -23,21 +60,24 @@ def index():
     if lang not in ['ru', 'en', 'kk', 'uz']:
         lang = 'ru'
 
-    # Получаем конфигурацию формы для выбранного языка
-    form_config = get_form_config(lang)
+    # Получаем тип формы из параметров URL
+    form_type = request.args.get('form_type', 'lv')
+    if form_type not in FORM_CONFIG_MODULES:
+        form_type = 'lv'
 
-    # Заголовки в зависимости от языка
-    titles = {
-        "ru": "Чек-лист инспекции спецтехники",
-        "en": "Equipment Inspection Checklist",
-        "kk": "Техниканы тексеру тізімі",
-        "uz": "Texnika tekshiruv ro'yxati"
-    }
+    # Динамически загружаем нужный модуль конфигурации
+    module_name = FORM_CONFIG_MODULES[form_type]
+    config_module = import_module(module_name)
+    form_config = config_module.get_form_config(lang)
+
+    # Заголовки в зависимости от типа формы и языка
+    titles = FORM_TITLES.get(form_type, FORM_TITLES["lv"])
 
     return render_template('index.html',
                            title=titles.get(lang, titles['ru']),
                            questions=form_config,
-                           lang=lang)
+                           lang=lang,
+                           form_type=form_type)
 
 @app_bp.route('/api/machines', methods=['GET'])
 def get_machines():
@@ -142,53 +182,36 @@ def submit_form():
         data['model'] = machine['model']
         data['license_plate'] = machine['license_plate']
 
-        # 4. Указываем верное имя листа (убедитесь, что оно совпадает с Sheets)
-        success = append_inspection_data(data, sheet_name='Ответы на форму')
+        # 4. Сохраняем в PostgreSQL
+        inspection_id = save_inspection(data)
+        if not inspection_id:
+            logger.error("Failed to save inspection to PostgreSQL!")
+            return jsonify({"success": False, "error": "Failed to save to database"}), 500
 
-        if success:
-            # Send confirmation message to user via bot in background thread
-            telegram_user_id = data.get('telegram_user_id')
-            lang = data.get('lang', 'ru')
+        logger.info(f"Inspection saved to PostgreSQL with id={inspection_id}")
 
-            logger.info(f"Form submitted successfully. telegram_user_id: {telegram_user_id}, lang: {lang}")
+        # 5. Отправляем подтверждение в Telegram
+        telegram_user_id = data.get('telegram_user_id')
+        lang = data.get('lang', 'ru')
 
-            if telegram_user_id:
-                # Format confirmation message with submission timestamp
-                submission_time = data.get('timestamp', datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
-                confirmation_text = get_bot_message('submission_confirmed', lang).format(datetime=submission_time)
+        if telegram_user_id:
+            submission_time = data.get('timestamp', datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
+            confirmation_text = get_bot_message('submission_confirmed', lang).format(datetime=submission_time)
 
-                logger.info(f"Preparing to send confirmation message to user {telegram_user_id}")
+            def send_message_sync():
+                try:
+                    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+                    payload = {"chat_id": telegram_user_id, "text": confirmation_text}
+                    response = requests.post(url, json=payload, timeout=10)
+                    response.raise_for_status()
+                    logger.info(f"Confirmation sent to user {telegram_user_id}")
+                except Exception as e:
+                    logger.error(f"Failed to send confirmation to {telegram_user_id}: {e}")
 
-                # Send message in background thread to not block response
-                def send_message_sync():
-                    logger.info(f"Background thread started for user {telegram_user_id}")
-                    try:
-                        # Use Telegram Bot API directly via requests (sync)
-                        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-                        payload = {
-                            "chat_id": telegram_user_id,
-                            "text": confirmation_text
-                        }
-                        logger.info(f"Sending message to chat_id={telegram_user_id}: {confirmation_text}")
+            thread = threading.Thread(target=send_message_sync, daemon=True)
+            thread.start()
 
-                        response = requests.post(url, json=payload, timeout=10)
-                        response.raise_for_status()
-
-                        logger.info(f"✅ Confirmation message sent successfully to user {telegram_user_id}")
-                    except Exception as e:
-                        logger.error(f"❌ Failed to send confirmation message to {telegram_user_id}: {e}", exc_info=True)
-
-                # Start background thread
-                thread = threading.Thread(target=send_message_sync, name=f"TelegramBot-{telegram_user_id}")
-                thread.daemon = True
-                thread.start()
-                logger.info(f"Background thread started: {thread.name}")
-            else:
-                logger.warning("telegram_user_id is missing - cannot send confirmation message")
-
-            return jsonify({"success": True})
-        else:
-            return jsonify({"success": False, "error": "Failed to save to Google Sheets"}), 500
+        return jsonify({"success": True, "id": inspection_id})
 
     except Exception as e:
         logger.error(f"Error in /submit: {e}")
@@ -233,7 +256,6 @@ def get_mechanics():
 def get_departments():
     """Returns list of departments from 1C (or local DB fallback)."""
     try:
-        from database import get_all_departments
         # Trigger sync/fetch for departments
         odata_service.sync_departments()
         # Get all departments
@@ -242,3 +264,31 @@ def get_departments():
     except Exception as e:
         logger.error(f"Error in /api/departments: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+GSHEETS_API_KEY = os.getenv("GSHEETS_API_KEY", "")
+
+
+@app_bp.route('/api/inspection', methods=['POST'])
+def receive_inspection_from_sheets():
+    """Принимает данные инспекции из Google Apps Script и сохраняет в PostgreSQL."""
+    try:
+        # Проверка API-ключа
+        api_key = request.headers.get('X-API-Key', '')
+        if not GSHEETS_API_KEY or api_key != GSHEETS_API_KEY:
+            return jsonify({"success": False, "error": "Unauthorized"}), 401
+
+        data = request.json
+        if not data:
+            return jsonify({"success": False, "error": "No data received"}), 400
+
+        inspection_id = save_inspection_from_sheets(data)
+        if inspection_id:
+            logger.info(f"Sheets inspection saved to PostgreSQL with id={inspection_id}")
+            return jsonify({"success": True, "id": inspection_id})
+        else:
+            return jsonify({"success": False, "error": "Failed to save"}), 500
+
+    except Exception as e:
+        logger.error(f"Error in /api/inspection: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
