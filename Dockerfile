@@ -17,11 +17,12 @@ COPY app_routes.py .
 COPY bot_handlers.py .
 COPY bot_instance.py .
 COPY database.py .
-COPY form_config.py .
 COPY odata_service.py .
-COPY sheets_service.py .
 COPY translations.py .
-COPY tbot-checklists-b26f4a92ff19.json .
+COPY lv_form_config.py .
+COPY lv_oa_form_config.py .
+COPY sv_form_config.py .
+COPY sv_oa_form_config.py .
 COPY static/ ./static/
 COPY templates/ ./templates/
 

@@ -3,10 +3,10 @@ from aiogram import Router, types, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import WebAppInfo, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
+from aiogram.types import WebAppInfo, ReplyKeyboardMarkup, KeyboardButton
 import logging
 from dotenv import load_dotenv
-from translations import BOT_MESSAGES, LANGUAGE_NAMES, get_bot_message
+from translations import LANGUAGE_NAMES, get_bot_message
 
 load_dotenv()
 

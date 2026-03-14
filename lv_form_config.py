@@ -104,7 +104,7 @@ def get_form_config(lang: str = "ru") -> List[Dict[str, Any]]:
             "type": "radio",
             "options": translate_options(["Нормальное", "Не нормальное", "Другое"], lang),
             "required": True,
-            "warning_text": {"ru": "Опишите проблему в поле 'Другое' или сообщите механику", "en": "Describe the issue in 'Other' field or report to mechanic", "kk": "Мәселені 'Басқа' өрісінде сипаттаңыз немесе механикке хабарлаңыз", "uz": "Muammoni 'Boshqa' maydonida tasvirlab bering yoki mexanikka xabar bering"}[lang]
+            "warning_text": {"ru": "При наличии каких-либо проблем, сообщите механику", "en": "Describe the issue in 'Other' field or report to mechanic", "kk": "Мәселені 'Басқа' өрісінде сипаттаңыз немесе механикке хабарлаңыз", "uz": "Muammoni 'Boshqa' maydonida tasvirlab bering yoki mexanikka xabar bering"}[lang]
         },
         {
             "id": "paint_state",
@@ -112,7 +112,7 @@ def get_form_config(lang: str = "ru") -> List[Dict[str, Any]]:
             "type": "radio",
             "options": translate_options(["Нормальное", "Не нормальное", "Другое"], lang),
             "required": True,
-            "warning_text": {"ru": "Ваш текст предупреждения", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
+            "warning_text": {"ru": "При наличии каких-либо проблем, сообщите механику", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
         },
         {
             "id": "body_cleanliness",
@@ -120,7 +120,7 @@ def get_form_config(lang: str = "ru") -> List[Dict[str, Any]]:
             "type": "radio",
             "options": translate_options(["Нормальное", "Не нормальное", "Другое"], lang),
             "required": True,
-            "warning_text": {"ru": "Ваш текст предупреждения", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
+            "warning_text": {"ru": "При наличии каких-либо проблем, сообщите механику", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
         },
         {
             "id": "body_defects",
@@ -128,7 +128,7 @@ def get_form_config(lang: str = "ru") -> List[Dict[str, Any]]:
             "type": "radio",
             "options": translate_options(["Отсутствует", "Имеется", "Другое"], lang),
             "required": True,
-            "warning_text": {"ru": "Ваш текст предупреждения", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
+            "warning_text": {"ru": "При наличии каких-либо проблем, сообщите механику", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
         },
         {
             "id": "section_4",
@@ -141,7 +141,7 @@ def get_form_config(lang: str = "ru") -> List[Dict[str, Any]]:
             "type": "radio",
             "options": translate_options(["Нормальное", "Не нормальное", "Другое"], lang),
             "required": True,
-            "warning_text": {"ru": "Ваш текст предупреждения", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
+            "warning_text": {"ru": "Получить разрешение механика", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
         },
         {
             "id": "hydro_oil_condition",
@@ -149,7 +149,7 @@ def get_form_config(lang: str = "ru") -> List[Dict[str, Any]]:
             "type": "radio",
             "options": translate_options(["Нормальное", "Не нормальное", "Другое"], lang),
             "required": True,
-            "warning_text": {"ru": "Ваш текст предупреждения", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
+            "warning_text": {"ru": "Получить разрешение механика", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
         },
         {
             "id": "hydro_oil_system_leakages",
@@ -157,7 +157,7 @@ def get_form_config(lang: str = "ru") -> List[Dict[str, Any]]:
             "type": "radio",
             "options": translate_options(["Отсутствует", "Имеется", "Другое"], lang),
             "required": True,
-            "warning_text": {"ru": "Ваш текст предупреждения", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
+            "warning_text": {"ru": "Получить разрешение механика", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
         },
         {
             "id": "section_6",
@@ -170,7 +170,7 @@ def get_form_config(lang: str = "ru") -> List[Dict[str, Any]]:
             "type": "radio",
             "options": translate_options(["Нормальное", "Не нормальное", "Другое"], lang),
             "required": True,
-            "warning_text": {"ru": "Ваш текст предупреждения", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
+            "warning_text": {"ru": "Получить разрешение механика", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
         },
         {
             "id": "filter_conditions",
@@ -178,7 +178,7 @@ def get_form_config(lang: str = "ru") -> List[Dict[str, Any]]:
             "type": "radio",
             "options": translate_options(["Нормальное", "Не нормальное", "Другое"], lang),
             "required": True,
-            "warning_text": {"ru": "Ваш текст предупреждения", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
+            "warning_text": {"ru": "При наличии каких-либо проблем, сообщите механику", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
         },
         {
             "id": "belts_and_rubber_parts_and_pipes_condition",
@@ -186,7 +186,7 @@ def get_form_config(lang: str = "ru") -> List[Dict[str, Any]]:
             "type": "radio",
             "options": translate_options(["Нормальное", "Не нормальное", "Другое"], lang),
             "required": True,
-            "warning_text": {"ru": "Ваш текст предупреждения", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
+            "warning_text": {"ru": "Получить разрешение механика", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
         },
         {
             "id": "radiator_condition_and_cleanliness",
@@ -194,7 +194,7 @@ def get_form_config(lang: str = "ru") -> List[Dict[str, Any]]:
             "type": "radio",
             "options": translate_options(["Нормальное", "Не нормальное", "Другое"], lang),
             "required": True,
-            "warning_text": {"ru": "Ваш текст предупреждения", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
+            "warning_text": {"ru": "При наличии каких-либо проблем, сообщите механику", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
         },
         {
             "id": "other_radiators_condition_and_cleanliness",
@@ -202,7 +202,7 @@ def get_form_config(lang: str = "ru") -> List[Dict[str, Any]]:
             "type": "radio",
             "options": translate_options(["Нормальное", "Не нормальное", "Другое"], lang),
             "required": True,
-            "warning_text": {"ru": "Ваш текст предупреждения", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
+            "warning_text": {"ru": "При наличии каких-либо проблем, сообщите механику", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
         },
         {
             "id": "electrical_wires_condition",
@@ -210,7 +210,7 @@ def get_form_config(lang: str = "ru") -> List[Dict[str, Any]]:
             "type": "radio",
             "options": translate_options(["Нормальное", "Не нормальное", "Другое"], lang),
             "required": True,
-            "warning_text": {"ru": "Ваш текст предупреждения", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
+            "warning_text": {"ru": "При наличии каких-либо проблем, сообщите механику", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
         },
         {
             "id": "starter_and_alternator_condition",
@@ -218,7 +218,7 @@ def get_form_config(lang: str = "ru") -> List[Dict[str, Any]]:
             "type": "radio",
             "options": translate_options(["Нормальное", "Не нормальное", "Другое"], lang),
             "required": True,
-            "warning_text": {"ru": "Ваш текст предупреждения", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
+            "warning_text": {"ru": "При наличии каких-либо проблем, сообщите механику", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
         },
         {
             "id": "section_7",
@@ -231,7 +231,7 @@ def get_form_config(lang: str = "ru") -> List[Dict[str, Any]]:
             "type": "radio",
             "options": translate_options(["Нормальное", "Не нормальное", "Другое"], lang),
             "required": True,
-            "warning_text": {"ru": "Ваш текст предупреждения", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
+            "warning_text": {"ru": "При наличии каких-либо проблем, сообщите механику", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
         },
         {
             "id": "lower_body_condition",
@@ -239,7 +239,7 @@ def get_form_config(lang: str = "ru") -> List[Dict[str, Any]]:
             "type": "radio",
             "options": translate_options(["Нормальное", "Не нормальное", "Другое"], lang),
             "required": True,
-            "warning_text": {"ru": "Ваш текст предупреждения", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
+            "warning_text": {"ru": "При наличии каких-либо проблем, сообщите механику", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
         },
         {
             "id": "suspension_condition",
@@ -247,7 +247,7 @@ def get_form_config(lang: str = "ru") -> List[Dict[str, Any]]:
             "type": "radio",
             "options": translate_options(["Нормальное", "Не нормальное", "Другое"], lang),
             "required": True,
-            "warning_text": {"ru": "Ваш текст предупреждения", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
+            "warning_text": {"ru": "При наличии каких-либо проблем, сообщите механику", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
         },
         {
             "id": "gears_and_synchronizers_condition",
@@ -255,7 +255,7 @@ def get_form_config(lang: str = "ru") -> List[Dict[str, Any]]:
             "type": "radio",
             "options": translate_options(["Нормальное", "Не нормальное", "Другое"], lang),
             "required": True,
-            "warning_text": {"ru": "Ваш текст предупреждения", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
+            "warning_text": {"ru": "При наличии каких-либо проблем, сообщите механику", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
         },
         {
             "id": "tracks_gears_wheels_driveshafts_condition",
@@ -263,7 +263,7 @@ def get_form_config(lang: str = "ru") -> List[Dict[str, Any]]:
             "type": "radio",
             "options": translate_options(["Нормальное", "Не нормальное", "Другое"], lang),
             "required": True,
-            "warning_text": {"ru": "Ваш текст предупреждения", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
+            "warning_text": {"ru": "При наличии каких-либо проблем, сообщите механику", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
         },
         {
             "id": "section_8",
@@ -276,7 +276,7 @@ def get_form_config(lang: str = "ru") -> List[Dict[str, Any]]:
             "type": "radio",
             "options": translate_options(["Имеется", "Отсутствует", "Другое"], lang),
             "required": True,
-            "warning_text": {"ru": "Ваш текст предупреждения", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
+            "warning_text": {"ru": "При наличии каких-либо проблем, сообщите механику", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
         },
         {
             "id": "windshield_condition",
@@ -284,7 +284,7 @@ def get_form_config(lang: str = "ru") -> List[Dict[str, Any]]:
             "type": "radio",
             "options": translate_options(["Нормальное", "Не нормальное", "Другое"], lang),
             "required": True,
-            "warning_text": {"ru": "Ваш текст предупреждения", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
+            "warning_text": {"ru": "При наличии каких-либо проблем, сообщите механику", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
         },
         {
             "id": "seat_condition",
@@ -292,7 +292,7 @@ def get_form_config(lang: str = "ru") -> List[Dict[str, Any]]:
             "type": "radio",
             "options": translate_options(["Нормальное", "Не нормальное", "Другое"], lang),
             "required": True,
-            "warning_text": {"ru": "Ваш текст предупреждения", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
+            "warning_text": {"ru": "При наличии каких-либо проблем, сообщите механику", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
         },
         {
             "id": "belt_condition",
@@ -300,7 +300,7 @@ def get_form_config(lang: str = "ru") -> List[Dict[str, Any]]:
             "type": "radio",
             "options": translate_options(["Нормальное", "Не нормальное", "Другое"], lang),
             "required": True,
-            "warning_text": {"ru": "Ваш текст предупреждения", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
+            "warning_text": {"ru": "При наличии каких-либо проблем, сообщите механику", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
         },
         {
             "id": "signals_and_lights_functionality",
@@ -308,7 +308,7 @@ def get_form_config(lang: str = "ru") -> List[Dict[str, Any]]:
             "type": "radio",
             "options": translate_options(["Нормальное", "Не нормальное", "Другое"], lang),
             "required": True,
-            "warning_text": {"ru": "Ваш текст предупреждения", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
+            "warning_text": {"ru": "При наличии каких-либо проблем, сообщите механику", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
         },
         {
             "id": "cabine_cleanliness",
@@ -316,7 +316,7 @@ def get_form_config(lang: str = "ru") -> List[Dict[str, Any]]:
             "type": "radio",
             "options": translate_options(["Нормальное", "Не нормальное", "Другое"], lang),
             "required": True,
-            "warning_text": {"ru": "Ваш текст предупреждения", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
+            "warning_text": {"ru": "При наличии каких-либо проблем, сообщите механику", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
         },
         {
             "id": "section_9",
@@ -329,7 +329,7 @@ def get_form_config(lang: str = "ru") -> List[Dict[str, Any]]:
             "type": "radio",
             "options": translate_options(["Нормальное", "Не нормальное", "Другое"], lang),
             "required": True,
-            "warning_text": {"ru": "Ваш текст предупреждения", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
+            "warning_text": {"ru": "При наличии каких-либо проблем, сообщите механику", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
         },
         {
             "id": "battery_condition",
@@ -337,7 +337,7 @@ def get_form_config(lang: str = "ru") -> List[Dict[str, Any]]:
             "type": "radio",
             "options": translate_options(["Нормальное", "Не нормальное", "Другое"], lang),
             "required": True,
-            "warning_text": {"ru": "Ваш текст предупреждения", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
+            "warning_text": {"ru": "При наличии каких-либо проблем, сообщите механику", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
         },
         {
             "id": "windshield_guards_condition",
@@ -345,7 +345,7 @@ def get_form_config(lang: str = "ru") -> List[Dict[str, Any]]:
             "type": "radio",
             "options": translate_options(["Нормальное", "Не нормальное", "Другое"], lang),
             "required": True,
-            "warning_text": {"ru": "Ваш текст предупреждения", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
+            "warning_text": {"ru": "При наличии каких-либо проблем, сообщите механику", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
         },
         {
             "id": "warning_signs",
@@ -353,7 +353,7 @@ def get_form_config(lang: str = "ru") -> List[Dict[str, Any]]:
             "type": "radio",
             "options": translate_options(["Имеется", "Отсутствует", "Другое"], lang),
             "required": True,
-            "warning_text": {"ru": "Ваш текст предупреждения", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
+            "warning_text": {"ru": "При наличии каких-либо проблем, сообщите механику", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
         },
         {
             "id": "sensors_and_indicators_functionality",
@@ -361,7 +361,7 @@ def get_form_config(lang: str = "ru") -> List[Dict[str, Any]]:
             "type": "radio",
             "options": translate_options(["Нормальное", "Не нормальное", "Другое"], lang),
             "required": True,
-            "warning_text": {"ru": "Ваш текст предупреждения", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
+            "warning_text": {"ru": "При наличии каких-либо проблем, сообщите механику", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
         },
         {
             "id": "fire_extinguisher",
@@ -369,6 +369,6 @@ def get_form_config(lang: str = "ru") -> List[Dict[str, Any]]:
             "type": "radio",
             "options": translate_options(["Имеется", "Отсутствует", "Другое"], lang),
             "required": True,
-            "warning_text": {"ru": "Ваш текст предупреждения", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
+            "warning_text": {"ru": "При наличии каких-либо проблем, сообщите механику", "en": "Your warning text", "kk": "...", "uz": "..."}[lang]
         }
     ]
