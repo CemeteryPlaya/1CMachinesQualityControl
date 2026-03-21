@@ -6,3 +6,4 @@ ngrok.exe
 .ngrok.exe.old
 database.cpython-314.pyc
 machines.db
+.env

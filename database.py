@@ -33,8 +33,16 @@ def init_db():
                 inventory_number TEXT UNIQUE NOT NULL,
                 model TEXT NOT NULL,
                 license_plate TEXT,
+                ref_key TEXT,
                 last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
+        ''')
+        # Миграция: добавляем ref_key если нет
+        cur.execute('''
+            DO $$ BEGIN
+                ALTER TABLE machines ADD COLUMN ref_key TEXT;
+            EXCEPTION WHEN duplicate_column THEN NULL;
+            END $$
         ''')
         cur.execute('''
             CREATE TABLE IF NOT EXISTS employees (
@@ -42,8 +50,15 @@ def init_db():
                 employee_code TEXT UNIQUE NOT NULL,
                 full_name TEXT NOT NULL,
                 position_type TEXT NOT NULL,
+                ref_key TEXT,
                 last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
+        ''')
+        cur.execute('''
+            DO $$ BEGIN
+                ALTER TABLE employees ADD COLUMN ref_key TEXT;
+            EXCEPTION WHEN duplicate_column THEN NULL;
+            END $$
         ''')
         cur.execute('''
             CREATE TABLE IF NOT EXISTS departments (
@@ -88,18 +103,19 @@ def init_db():
 # MACHINES
 # ============================================================
 
-def upsert_machine(inventory_number: str, model: str, license_plate: str):
+def upsert_machine(inventory_number: str, model: str, license_plate: str, ref_key: str = None):
     conn = get_db_connection()
     try:
         cur = conn.cursor()
         cur.execute('''
-            INSERT INTO machines (inventory_number, model, license_plate, last_updated)
-            VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
+            INSERT INTO machines (inventory_number, model, license_plate, ref_key, last_updated)
+            VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
             ON CONFLICT (inventory_number) DO UPDATE SET
                 model = EXCLUDED.model,
                 license_plate = EXCLUDED.license_plate,
+                ref_key = COALESCE(EXCLUDED.ref_key, machines.ref_key),
                 last_updated = CURRENT_TIMESTAMP
-        ''', (inventory_number, model, license_plate))
+        ''', (inventory_number, model, license_plate, ref_key))
         conn.commit()
     except Exception as e:
         conn.rollback()
@@ -142,18 +158,19 @@ def get_machine_by_id(machine_id: int) -> Optional[Dict]:
 # EMPLOYEES
 # ============================================================
 
-def upsert_employee(employee_code: str, full_name: str, position_type: str):
+def upsert_employee(employee_code: str, full_name: str, position_type: str, ref_key: str = None):
     conn = get_db_connection()
     try:
         cur = conn.cursor()
         cur.execute('''
-            INSERT INTO employees (employee_code, full_name, position_type, last_updated)
-            VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
+            INSERT INTO employees (employee_code, full_name, position_type, ref_key, last_updated)
+            VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
             ON CONFLICT (employee_code) DO UPDATE SET
                 full_name = EXCLUDED.full_name,
                 position_type = EXCLUDED.position_type,
+                ref_key = COALESCE(EXCLUDED.ref_key, employees.ref_key),
                 last_updated = CURRENT_TIMESTAMP
-        ''', (employee_code, full_name, position_type))
+        ''', (employee_code, full_name, position_type, ref_key))
         conn.commit()
     except Exception as e:
         conn.rollback()
@@ -272,6 +289,7 @@ _INSPECTION_META_KEYS = {
     'mileage', 'motorhours',
     'capacity_of_fuel_in_fueltank', 'fuel_type',
     'timestamp', 'driver_uid', 'mechanic_uid', 'machine_uid',
+    'department_ref_key', 'driver_ref_key', 'mechanic_ref_key', 'machine_ref_key',
 }
 
 

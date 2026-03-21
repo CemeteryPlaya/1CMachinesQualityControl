@@ -1,7 +1,9 @@
 import requests
 import os
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+from datetime import datetime
+from importlib import import_module
 from database import upsert_machine, get_all_machines, upsert_employee, get_all_employees
 
 logger = logging.getLogger(__name__)
@@ -17,9 +19,11 @@ ODATA_EMPLOYEES_URL = os.getenv("ODATA_EMPLOYEES_URL")
 # URL для подразделений
 ODATA_DEPARTMENT_URL = os.getenv("ODATA_DEPARTMENT_URL")
 
-# === НОВОЕ: базовый URL для OData (без конкретного справочника) ===
-# Пример: http://192.168.1.77/HiTechMat/odata/standard.odata
+# Базовый URL для OData (без конкретного справочника)
 ODATA_BASE_URL = os.getenv("ODATA_BASE_URL")
+
+# URL документа ЧекЛистОсмотра для POST
+ODATA_DOC_URL = os.getenv("ODATA_DOC_URL")
 
 
 def _get_auth():
@@ -64,12 +68,14 @@ def fetch_machines() -> List[Dict[str, Any]]:
             inventory_number = machine.get("Code") or machine.get("InventoryNumber")
             name_model = machine.get("Description") or machine.get("Model")
             license_plate = machine.get("LicensePlate") or machine.get("ГосударственныйНомер")
+            ref_key = machine.get("Ref_Key")
 
             if inventory_number:
                 upsert_machine(
                     inventory_number=str(inventory_number),
                     model=str(name_model or "Unknown"),
-                    license_plate=str(license_plate or "")
+                    license_plate=str(license_plate or ""),
+                    ref_key=str(ref_key) if ref_key else None
                 )
 
         logger.info(f"Successfully fetched and updated {len(machines_from_1c)} machines from 1C.")
@@ -303,7 +309,8 @@ def fetch_employees() -> List[Dict[str, Any]]:
             upsert_employee(
                 employee_code=str(employee_code),
                 full_name=str(full_name),
-                position_type=position_name
+                position_type=position_name,
+                ref_key=str(emp_ref_key) if emp_ref_key else None
             )
             drivers_and_mechanics.append({
                 "employee_code": employee_code,
@@ -349,7 +356,8 @@ def _fetch_employees_fallback(
             )
 
             if current_position_key in target_position_keys:
-                employee_code = employee.get("Code") or employee.get("Ref_Key")
+                emp_ref_key = employee.get("Ref_Key", "")
+                employee_code = employee.get("Code") or emp_ref_key
                 full_name = employee.get("Description") or "Unknown"
                 position_name = positions_map.get(current_position_key, "UNKNOWN")
 
@@ -357,7 +365,8 @@ def _fetch_employees_fallback(
                     upsert_employee(
                         employee_code=str(employee_code),
                         full_name=str(full_name),
-                        position_type=position_name
+                        position_type=position_name,
+                        ref_key=str(emp_ref_key) if emp_ref_key else None
                     )
                     drivers_and_mechanics.append({
                         "employee_code": employee_code,
@@ -469,3 +478,241 @@ def fetch_departments() -> List[Dict[str, Any]]:
     except Exception as e:
         logger.error(f"Unexpected error in fetch_departments: {e}")
         return get_all_departments()
+
+
+# ============================================================
+# POST CHECKLIST TO 1C
+# ============================================================
+
+# Маппинг: form_field_id → (1С_табличная_часть, 1С_реквизит)
+# Имена табличных частей и реквизитов ТОЧНО соответствуют конфигурации 1С
+_FIELD_TO_1C = {
+    # --- Кузов ---
+    "body_state":                   ("Кузов", "СостояниеКузова"),
+    "paint_state":                  ("Кузов", "СостояниеЛакокрасочногоПокрытия"),
+    "body_cleanliness":             ("Кузов", "ЧистотаКузова"),
+    "body_defects":                 ("Кузов", "КакоеЛибоПовреждение"),
+
+    # --- Гидравлическая система ---
+    "hydro_oil_level":              ("ГидравлическаяСистема", "СостояниеГидравлическойЖидкостиИИФильров"),
+    "hydro_oil_condition":          ("ГидравлическаяСистема", "СостояниеГидравлическойЖидкостиИИФильров"),
+    "hydro_oil_system_leakages":    ("ГидравлическаяСистема", "НаличиеКакойЛибоТечиВСистеме"),
+
+    # --- Вспомогательное оборудование (только sv) ---
+    "crane_boom_condition":         ("ВспомогательноеОборудование", "СостояниеСтрелы"),
+    "slings_or_ropes_condition":    ("ВспомогательноеОборудование", "СостояниеСтропИлиТроса"),
+    "safety_latches_condition":     ("ВспомогательноеОборудование", "СостояниеБарабанаТросаЛебедки"),
+    "whinch_cable_drum_condition":  ("ВспомогательноеОборудование", "СостояниеБарабанаТросаЛебедки"),
+    "secondary_whinch_condition":   ("ВспомогательноеОборудование", "СостояниеВспомогательнойЛебедки"),
+
+    # --- Отсек двигателя ---
+    "oil_level":                                    ("ОтсекДвигателя", "УровеньЖидкостей"),
+    "filter_conditions":                            ("ОтсекДвигателя", "СостояниеФильтров"),
+    "belts_and_rubber_parts_and_pipes_condition":    ("ОтсекДвигателя", "СостояниеРемнейИШланговИПрочиеРезиновыеИзделия"),
+    "radiator_condition_and_cleanliness":            ("ОтсекДвигателя", "СостояниеИЧистотаРадиаторовОхлаждения"),
+    "other_radiators_condition_and_cleanliness":     ("ОтсекДвигателя", "СостояниеИЧистотаПрочихРадиаторов"),
+    "electrical_wires_condition":                    ("ОтсекДвигателя", "СостояниеЭлектропроводки"),
+    "starter_and_alternator_condition":              ("ОтсекДвигателя", "СостояниеСтартераИГенератора"),
+
+    # --- Ходовая часть ---
+    "differential_condition":                       ("ХодоваяЧасть", "СостояниеГлавнойПарыРедуктора"),
+    "final_gear_drive_condition":                   ("ХодоваяЧасть", "СостояниеГлавнойПарыРедуктора"),
+    "lower_body_condition":                         ("ХодоваяЧасть", "СостояниеНижнейЧастиКузова"),
+    "suspension_condition":                         ("ХодоваяЧасть", "СостояниеПодвески"),
+    "gears_and_synchronizers_condition":             ("ХодоваяЧасть", "СостояниеШестеренИСинхронизаторовКПП"),
+    "tracks_gears_wheels_driveshafts_condition":     ("ХодоваяЧасть", "СостояниеГусеницыШестеренКолесИПриводныхВалов"),
+
+    # --- Оснащение и инструменты ---
+    "protective_equipment":             ("ОснащениеИИнструменты", "НаличиеСредствЗащитыВКабине"),
+    "windshield_condition":             ("ОснащениеИИнструменты", "СостояниеВетровогоСтекла"),
+    "seat_condition":                   ("ОснащениеИИнструменты", "СостояниеСидений"),
+    "belt_condition":                   ("ОснащениеИИнструменты", "СостояниеРемняБезопасности"),
+    "signals_and_lights_functionality": ("ОснащениеИИнструменты", "РаботоспособностьЗвуковогоСигналаСигналаЗаднегоХодаФарИФонарей"),
+    # cabine_cleanliness — нет в 1С, нужно добавить реквизит
+
+    # --- Прочие элементы ---
+    "side_mirrors_and_rear_view_condition":  ("ПрочиеЭлементы", "СостояниеБоковыхЗеркалИЗаднешлВида"),
+    "battery_condition":                     ("ПрочиеЭлементы", "СостояниеАккумулятора"),
+    # windshield_guards_condition — нет в 1С, нужно добавить реквизит
+    "warning_signs":                         ("ПрочиеЭлементы", "НаличиеПредупреждающихЗнаков"),
+    "sensors_and_indicators_functionality":  ("ПрочиеЭлементы", "РаботоспособностьИКорректностьДатчиковИИндикаторов"),
+    "fire_extinguisher":                     ("ПрочиеЭлементы", "НаличиеИРаботоспсобностьОгнетушителя"),
+
+    # --- Документация (только oa формы) ---
+    "registration_certificate":         ("Документация", "НаличиеТехпаспорта"),
+    "insurance":                        ("Документация", "НаличиеСтраховогоПолиса"),
+    "insurance_end_date":               ("Документация", "ДатаОкончанияСтраховогоПолиса"),
+    "technical_inspection":             ("Документация", "НаличиеДокументаТехническогоОсмотра"),
+    "technical_inspection_date":        ("Документация", "ДатаОкончанияДокументаТехническогоОсмотра"),
+}
+
+# Человекочитаемые названия типов форм для 1С
+_FORM_TYPE_LABELS = {
+    "lv":    "Легковое (на территории)",
+    "lv_oa": "Легковое (вне территории)",
+    "sv":    "Спецтехника (на территории)",
+    "sv_oa": "Спецтехника (вне территории)",
+}
+
+_LANG_LABELS = {
+    "ru": "Русский",
+    "en": "Английский",
+    "kk": "Казахский",
+    "uz": "Узбекский",
+}
+
+# Порядок табличных частей для LineNumber
+_1C_SECTIONS_ORDER = [
+    "Кузов", "ГидравлическаяСистема",
+    "ВспомогательноеОборудование", "ОтсекДвигателя", "ХодоваяЧасть",
+    "ОснащениеИИнструменты", "ПрочиеЭлементы", "Документация",
+]
+
+
+def _to_1c_datetime(raw_date: str) -> str:
+    """Преобразует дату в формат ISO для 1С OData"""
+    if raw_date:
+        for fmt in ("%d.%m.%Y", "%Y-%m-%d"):
+            try:
+                return datetime.strptime(raw_date, fmt).strftime("%Y-%m-%dT00:00:00")
+            except ValueError:
+                continue
+    return datetime.now().strftime("%Y-%m-%dT00:00:00")
+
+
+def _build_1c_sections(data: dict) -> Dict[str, list]:
+    """
+    Группирует поля формы по табличным частям 1С.
+    Каждая секция → одна строка (dict) с заполненными реквизитами.
+    """
+    sections: Dict[str, dict] = {}
+
+    # Поля с типом Edm.DateTime в табличных частях
+    _DATETIME_COLUMNS = {
+        "ДатаОкончанияСтраховогоПолиса",
+        "ДатаОкончанияДокументаТехническогоОсмотра",
+    }
+
+    for field_id, value in data.items():
+        if not value or field_id not in _FIELD_TO_1C:
+            continue
+
+        section_name, column_name = _FIELD_TO_1C[field_id]
+
+        if section_name not in sections:
+            sections[section_name] = {}
+
+        # Не перезаписываем, если уже заполнено (для случаев hydro_oil_level / hydro_oil_condition)
+        if column_name not in sections[section_name]:
+            if column_name in _DATETIME_COLUMNS:
+                sections[section_name][column_name] = _to_1c_datetime(str(value))
+            else:
+                sections[section_name][column_name] = str(value)
+
+    # Преобразуем в формат OData: каждая секция = массив из одной строки
+    result = {}
+    for section_name in _1C_SECTIONS_ORDER:
+        if section_name in sections:
+            row = sections[section_name]
+            row["LineNumber"] = "1"
+            result[section_name] = [row]
+
+    return result
+
+
+def post_checklist_to_1c(data: dict, inspection_id: int) -> Optional[dict]:
+    """
+    Отправляет заполненный чек-лист в 1С через OData POST.
+
+    Шапка: ИД, ДатаИнспекции, Подразделение, Водитель, Механик, Машина,
+           ТипФормы, Язык, Пробег, Моточасы, КоличествоТоплива, ТипТоплива
+    Табличные части: Показания, Кузов, ГидравлическаяСистема, ОтсекДвигателя,
+                     ХодоваяЧасть, ОснащениеИИнструменты, ПрочиеЭлементы, Документация
+    """
+    if not ODATA_DOC_URL:
+        logger.warning("ODATA_DOC_URL not set — skipping 1C push")
+        return None
+
+    def to_num(val, default=0):
+        try:
+            return int(val)
+        except (TypeError, ValueError):
+            return default
+
+    form_type = data.get("form_type", "lv")
+
+    # --- Шапка документа ---
+    doc_payload = {
+        "Date": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+        "Posted": False,
+        "ИД": str(inspection_id),
+        "ТипФормы": _FORM_TYPE_LABELS.get(form_type, form_type),
+        "Язык": _LANG_LABELS.get(data.get("lang", "ru"), data.get("lang", "ru")),
+        "ДатаИнспекции": _to_1c_datetime(data.get("inspection_date", "")),
+
+        # Числовые (Edm.Double)
+        "Пробег": to_num(data.get("mileage")),
+        "Моточасы": to_num(data.get("motorhours")),
+        "КоличествоТоплива": to_num(data.get("capacity_of_fuel_in_fueltank")),
+        "ТипТоплива": data.get("fuel_type", ""),
+    }
+
+    # Ссылочные поля (Edm.Guid) — передаём _Key только если есть GUID
+    # Подразделение, Водитель, Механик, Машина — NavigationProperty (ссылки)
+    dept_ref = data.get("department_ref_key")
+    if dept_ref:
+        doc_payload["Подразделение_Key"] = dept_ref
+
+    driver_ref = data.get("driver_ref_key")
+    if driver_ref:
+        doc_payload["Водитель_Key"] = driver_ref
+
+    mechanic_ref = data.get("mechanic_ref_key")
+    if mechanic_ref:
+        doc_payload["Механик_Key"] = mechanic_ref
+
+    machine_ref = data.get("machine_ref_key")
+    if machine_ref:
+        doc_payload["Машина_Key"] = machine_ref
+
+    # --- Табличные части (по секциям) ---
+    sections = _build_1c_sections(data)
+    doc_payload.update(sections)
+
+    section_names = list(sections.keys())
+
+    try:
+        logger.info(
+            f"Posting checklist to 1C: inspection_id={inspection_id}, "
+            f"form_type={form_type}, sections={section_names}"
+        )
+
+        post_url = ODATA_DOC_URL.split("?")[0]
+
+        response = requests.post(
+            post_url,
+            auth=_get_auth(),
+            json=doc_payload,
+            timeout=30,
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            }
+        )
+
+        if response.status_code in (200, 201):
+            result = response.json()
+            ref_key = result.get("Ref_Key", "unknown")
+            logger.info(f"Checklist posted to 1C: Ref_Key={ref_key}")
+            return result
+        else:
+            body = response.text[:500]
+            logger.error(f"1C returned HTTP {response.status_code}: {body}")
+            return None
+
+    except requests.RequestException as e:
+        logger.error(f"Error posting checklist to 1C: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Unexpected error posting checklist to 1C: {e}", exc_info=True)
+        return None

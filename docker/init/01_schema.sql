@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS machines (
     inventory_number TEXT UNIQUE NOT NULL,
     model TEXT NOT NULL,
     license_plate TEXT,
+    ref_key TEXT,
     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -13,6 +14,7 @@ CREATE TABLE IF NOT EXISTS employees (
     employee_code TEXT UNIQUE NOT NULL,
     full_name TEXT NOT NULL,
     position_type TEXT NOT NULL,
+    ref_key TEXT,
     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

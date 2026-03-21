@@ -1,0 +1,147 @@
+<EntityType Name="Document_ЧекЛисты">
+<Key>
+<PropertyRef Name="Ref_Key"/>
+</Key>
+<Property Name="Ref_Key" Type="Edm.Guid" Nullable="false"/>
+<Property Name="DataVersion" Type="Edm.String" Nullable="true"/>
+<Property Name="Number" Type="Edm.String" Nullable="true"/>
+<Property Name="Date" Type="Edm.DateTime" Nullable="true"/>
+<Property Name="DeletionMark" Type="Edm.Boolean" Nullable="true"/>
+<Property Name="Posted" Type="Edm.Boolean" Nullable="true"/>
+<Property Name="ИД" Type="Edm.String" Nullable="true"/>
+<Property Name="ДатаИнспекции" Type="Edm.DateTime" Nullable="true"/>
+<Property Name="Подразделение_Key" Type="Edm.Guid" Nullable="true"/>
+<Property Name="Водитель_Key" Type="Edm.Guid" Nullable="true"/>
+<Property Name="Механик_Key" Type="Edm.Guid" Nullable="true"/>
+<Property Name="Машина_Key" Type="Edm.Guid" Nullable="true"/>
+<Property Name="ТипФормы" Type="Edm.String" Nullable="true"/>
+<Property Name="Язык" Type="Edm.String" Nullable="true"/>
+<Property Name="Пробег" Type="Edm.Double" Nullable="true"/>
+<Property Name="Моточасы" Type="Edm.Double" Nullable="true"/>
+<Property Name="КоличествоТоплива" Type="Edm.Double" Nullable="true"/>
+<Property Name="ТипТоплива" Type="Edm.String" Nullable="true"/>
+<Property Name="Показания" Type="Collection(StandardODATA.Document_ЧекЛисты_Показания_RowType)" Nullable="true"/>
+<Property Name="Кузов" Type="Collection(StandardODATA.Document_ЧекЛисты_Кузов_RowType)" Nullable="true"/>
+<Property Name="ГидравлическаяСистема" Type="Collection(StandardODATA.Document_ЧекЛисты_ГидравлическаяСистема_RowType)" Nullable="true"/>
+<Property Name="ВспомогательноеОборудование" Type="Collection(StandardODATA.Document_ЧекЛисты_ВспомогательноеОборудование_RowType)" Nullable="true"/>
+<Property Name="ОтсекДвигателя" Type="Collection(StandardODATA.Document_ЧекЛисты_ОтсекДвигателя_RowType)" Nullable="true"/>
+<Property Name="ХодоваяЧасть" Type="Collection(StandardODATA.Document_ЧекЛисты_ХодоваяЧасть_RowType)" Nullable="true"/>
+<Property Name="ОснащениеИИнструменты" Type="Collection(StandardODATA.Document_ЧекЛисты_ОснащениеИИнструменты_RowType)" Nullable="true"/>
+<Property Name="ПрочиеЭлементы" Type="Collection(StandardODATA.Document_ЧекЛисты_ПрочиеЭлементы_RowType)" Nullable="true"/>
+<Property Name="Документация" Type="Collection(StandardODATA.Document_ЧекЛисты_Документация_RowType)" Nullable="true"/>
+<NavigationProperty Name="Подразделение" Relationship="StandardODATA.Document_ЧекЛисты_Подразделение" FromRole="Begin" ToRole="End"/>
+<NavigationProperty Name="Водитель" Relationship="StandardODATA.Document_ЧекЛисты_Водитель" FromRole="Begin" ToRole="End"/>
+<NavigationProperty Name="Механик" Relationship="StandardODATA.Document_ЧекЛисты_Механик" FromRole="Begin" ToRole="End"/>
+<NavigationProperty Name="Машина" Relationship="StandardODATA.Document_ЧекЛисты_Машина" FromRole="Begin" ToRole="End"/>
+</EntityType>
+<EntityType Name="Document_ЧекЛисты_Показания">
+<Key>
+<PropertyRef Name="Ref_Key"/>
+<PropertyRef Name="LineNumber"/>
+</Key>
+<Property Name="Ref_Key" Type="Edm.Guid" Nullable="false"/>
+<Property Name="LineNumber" Type="Edm.Int64" Nullable="false"/>
+<Property Name="ОбъемТопливаВБакеНаМоментИнспекции" Type="Edm.String" Nullable="true"/>
+<Property Name="ПробегНаМоментИнспекции" Type="Edm.String" Nullable="true"/>
+</EntityType>
+<EntityType Name="Document_ЧекЛисты_Кузов">
+<Key>
+<PropertyRef Name="Ref_Key"/>
+<PropertyRef Name="LineNumber"/>
+</Key>
+<Property Name="Ref_Key" Type="Edm.Guid" Nullable="false"/>
+<Property Name="LineNumber" Type="Edm.Int64" Nullable="false"/>
+<Property Name="СостояниеКузова" Type="Edm.String" Nullable="true"/>
+<Property Name="СостояниеЛакокрасочногоПокрытия" Type="Edm.String" Nullable="true"/>
+<Property Name="ЧистотаКузова" Type="Edm.String" Nullable="true"/>
+<Property Name="КакоеЛибоПовреждение" Type="Edm.String" Nullable="true"/>
+</EntityType>
+<EntityType Name="Document_ЧекЛисты_ГидравлическаяСистема">
+<Key>
+<PropertyRef Name="Ref_Key"/>
+<PropertyRef Name="LineNumber"/>
+</Key>
+<Property Name="Ref_Key" Type="Edm.Guid" Nullable="false"/>
+<Property Name="LineNumber" Type="Edm.Int64" Nullable="false"/>
+<Property Name="СостояниеГидравлическойЖидкостиИИФильров" Type="Edm.String" Nullable="true"/>
+<Property Name="НаличиеКакойЛибоТечиВСистеме" Type="Edm.String" Nullable="true"/>
+</EntityType>
+<EntityType Name="Document_ЧекЛисты_ВспомогательноеОборудование">
+<Key>
+<PropertyRef Name="Ref_Key"/>
+<PropertyRef Name="LineNumber"/>
+</Key>
+<Property Name="Ref_Key" Type="Edm.Guid" Nullable="false"/>
+<Property Name="LineNumber" Type="Edm.Int64" Nullable="false"/>
+<Property Name="СостояниеСтрелы" Type="Edm.String" Nullable="true"/>
+<Property Name="СостояниеСтропИлиТроса" Type="Edm.String" Nullable="true"/>
+<Property Name="СостояниеБарабанаТросаЛебедки" Type="Edm.String" Nullable="true"/>
+<Property Name="СостояниеВспомогательнойЛебедки" Type="Edm.String" Nullable="true"/>
+</EntityType>
+<EntityType Name="Document_ЧекЛисты_ОтсекДвигателя">
+<Key>
+<PropertyRef Name="Ref_Key"/>
+<PropertyRef Name="LineNumber"/>
+</Key>
+<Property Name="Ref_Key" Type="Edm.Guid" Nullable="false"/>
+<Property Name="LineNumber" Type="Edm.Int64" Nullable="false"/>
+<Property Name="УровеньЖидкостей" Type="Edm.String" Nullable="true"/>
+<Property Name="СостояниеФильтров" Type="Edm.String" Nullable="true"/>
+<Property Name="СостояниеРемнейИШланговИПрочиеРезиновыеИзделия" Type="Edm.String" Nullable="true"/>
+<Property Name="СостояниеИЧистотаРадиаторовОхлаждения" Type="Edm.String" Nullable="true"/>
+<Property Name="СостояниеИЧистотаПрочихРадиаторов" Type="Edm.String" Nullable="true"/>
+<Property Name="СостояниеЭлектропроводки" Type="Edm.String" Nullable="true"/>
+<Property Name="СостояниеСтартераИГенератора" Type="Edm.String" Nullable="true"/>
+</EntityType>
+<EntityType Name="Document_ЧекЛисты_ХодоваяЧасть">
+<Key>
+<PropertyRef Name="Ref_Key"/>
+<PropertyRef Name="LineNumber"/>
+</Key>
+<Property Name="Ref_Key" Type="Edm.Guid" Nullable="false"/>
+<Property Name="LineNumber" Type="Edm.Int64" Nullable="false"/>
+<Property Name="СостояниеГлавнойПарыРедуктора" Type="Edm.String" Nullable="true"/>
+<Property Name="СостояниеНижнейЧастиКузова" Type="Edm.String" Nullable="true"/>
+<Property Name="СостояниеПодвески" Type="Edm.String" Nullable="true"/>
+<Property Name="СостояниеШестеренИСинхронизаторовКПП" Type="Edm.String" Nullable="true"/>
+<Property Name="СостояниеГусеницыШестеренКолесИПриводныхВалов" Type="Edm.String" Nullable="true"/>
+</EntityType>
+<EntityType Name="Document_ЧекЛисты_ОснащениеИИнструменты">
+<Key>
+<PropertyRef Name="Ref_Key"/>
+<PropertyRef Name="LineNumber"/>
+</Key>
+<Property Name="Ref_Key" Type="Edm.Guid" Nullable="false"/>
+<Property Name="LineNumber" Type="Edm.Int64" Nullable="false"/>
+<Property Name="НаличиеСредствЗащитыВКабине" Type="Edm.String" Nullable="true"/>
+<Property Name="СостояниеВетровогоСтекла" Type="Edm.String" Nullable="true"/>
+<Property Name="СостояниеСидений" Type="Edm.String" Nullable="true"/>
+<Property Name="СостояниеРемняБезопасности" Type="Edm.String" Nullable="true"/>
+<Property Name="РаботоспособностьЗвуковогоСигналаСигналаЗаднегоХодаФарИФонарей" Type="Edm.String" Nullable="true"/>
+</EntityType>
+<EntityType Name="Document_ЧекЛисты_ПрочиеЭлементы">
+<Key>
+<PropertyRef Name="Ref_Key"/>
+<PropertyRef Name="LineNumber"/>
+</Key>
+<Property Name="Ref_Key" Type="Edm.Guid" Nullable="false"/>
+<Property Name="LineNumber" Type="Edm.Int64" Nullable="false"/>
+<Property Name="СостояниеБоковыхЗеркалИЗаднешлВида" Type="Edm.String" Nullable="true"/>
+<Property Name="СостояниеАккумулятора" Type="Edm.String" Nullable="true"/>
+<Property Name="НаличиеПредупреждающихЗнаков" Type="Edm.String" Nullable="true"/>
+<Property Name="РаботоспособностьИКорректностьДатчиковИИндикаторов" Type="Edm.String" Nullable="true"/>
+<Property Name="НаличиеИРаботоспсобностьОгнетушителя" Type="Edm.String" Nullable="true"/>
+</EntityType>
+<EntityType Name="Document_ЧекЛисты_Документация">
+<Key>
+<PropertyRef Name="Ref_Key"/>
+<PropertyRef Name="LineNumber"/>
+</Key>
+<Property Name="Ref_Key" Type="Edm.Guid" Nullable="false"/>
+<Property Name="LineNumber" Type="Edm.Int64" Nullable="false"/>
+<Property Name="НаличиеТехпаспорта" Type="Edm.String" Nullable="true"/>
+<Property Name="НаличиеСтраховогоПолиса" Type="Edm.String" Nullable="true"/>
+<Property Name="ДатаОкончанияСтраховогоПолиса" Type="Edm.DateTime" Nullable="true"/>
+<Property Name="НаличиеДокументаТехническогоОсмотра" Type="Edm.String" Nullable="true"/>
+<Property Name="ДатаОкончанияДокументаТехническогоОсмотра" Type="Edm.DateTime" Nullable="true"/>
+</EntityType>

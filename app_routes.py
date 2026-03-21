@@ -12,6 +12,7 @@ import threading
 import requests
 from bot_instance import BOT_TOKEN
 from translations import get_bot_message
+from odata_service import post_checklist_to_1c
 
 app_bp = Blueprint('app', __name__)
 logger = logging.getLogger(__name__)
@@ -136,6 +137,7 @@ def submit_form():
             department = get_department_by_id(department_uid)
             if department:
                 data['department_uid'] = department['name']
+                data['department_ref_key'] = department.get('ref_key')
             else:
                 logger.warning(f"Department with ID {department_uid} not found")
 
@@ -144,9 +146,9 @@ def submit_form():
         if driver_uid:
             driver = get_employee_by_id(driver_uid)
             if driver:
-                formatted_driver = f"{driver['full_name']}"
-                data['driver_uid'] = formatted_driver
+                data['driver_uid'] = driver['full_name']
                 data['driver_name'] = driver['full_name']
+                data['driver_ref_key'] = driver.get('ref_key')
             else:
                 logger.warning(f"Driver with ID {driver_uid} not found")
 
@@ -155,9 +157,9 @@ def submit_form():
         if mechanic_uid:
             mechanic = get_employee_by_id(mechanic_uid)
             if mechanic:
-                formatted_mechanic = f"{mechanic['full_name']}"
-                data['mechanic_uid'] = formatted_mechanic
+                data['mechanic_uid'] = mechanic['full_name']
                 data['mechanic_name'] = mechanic['full_name']
+                data['mechanic_ref_key'] = mechanic.get('ref_key')
             else:
                 logger.warning(f"Mechanic with ID {mechanic_uid} not found")
 
@@ -170,17 +172,14 @@ def submit_form():
         if not machine:
             return jsonify({"success": False, "error": "Machine not found"}), 404
 
-        # 2. Формируем единую строку для столбца "Машина"
         plate = machine['license_plate'] if machine['license_plate'] else 'Нет ГРНЗ'
         formatted_machine = f"Модель: {machine['model']} | ГРНЗ: {plate} | ИН: {machine['inventory_number']}"
 
-        # Записываем её в machine_uid, который мапится на заголовок "Машина"
         data['machine_uid'] = formatted_machine
-
-        # 3. Инъекция деталей в отдельные поля (если столбцы в таблице остались)
         data['machine_inv'] = machine['inventory_number']
         data['model'] = machine['model']
         data['license_plate'] = machine['license_plate']
+        data['machine_ref_key'] = machine.get('ref_key')
 
         # 4. Сохраняем в PostgreSQL
         inspection_id = save_inspection(data)
@@ -190,7 +189,18 @@ def submit_form():
 
         logger.info(f"Inspection saved to PostgreSQL with id={inspection_id}")
 
-        # 5. Отправляем подтверждение в Telegram
+        # 5. Асинхронно отправляем в 1С через OData
+        data_copy = dict(data)
+
+        def push_to_1c():
+            try:
+                post_checklist_to_1c(data_copy, inspection_id)
+            except Exception as e:
+                logger.error(f"Background 1C push failed: {e}")
+
+        threading.Thread(target=push_to_1c, daemon=True).start()
+
+        # 6. Отправляем подтверждение в Telegram
         telegram_user_id = data.get('telegram_user_id')
         lang = data.get('lang', 'ru')
 
@@ -208,8 +218,7 @@ def submit_form():
                 except Exception as e:
                     logger.error(f"Failed to send confirmation to {telegram_user_id}: {e}")
 
-            thread = threading.Thread(target=send_message_sync, daemon=True)
-            thread.start()
+            threading.Thread(target=send_message_sync, daemon=True).start()
 
         return jsonify({"success": True, "id": inspection_id})
 
