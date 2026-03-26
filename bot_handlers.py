@@ -18,7 +18,9 @@ WEB_APP_URL = os.getenv("WEB_APP_URL")
 
 # FSM states
 class InspectionForm(StatesGroup):
+    waiting_for_form_category = State()
     waiting_for_vehicle_type = State()
+
 
 # Текст для кнопки смены языка на всех языках
 CHANGE_LANGUAGE_TEXT = {
@@ -30,6 +32,41 @@ CHANGE_LANGUAGE_TEXT = {
 
 # Маппинг типов техники на ключи конфигов
 VEHICLE_TYPES = ["lv", "lv_oa", "sv", "sv_oa"]
+
+
+def _build_category_keyboard(lang_code: str) -> ReplyKeyboardMarkup:
+    """Клавиатура выбора категории формы"""
+    change_lang_text = CHANGE_LANGUAGE_TEXT.get(lang_code, CHANGE_LANGUAGE_TEXT["ru"])
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=get_bot_message("category_checklist", lang_code))],
+            [KeyboardButton(text=get_bot_message("category_maintenance", lang_code))],
+            [KeyboardButton(text=change_lang_text)]
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=False
+    )
+
+
+def _build_vehicle_type_keyboard(lang_code: str) -> ReplyKeyboardMarkup:
+    """Клавиатура выбора типа техники (чек-листы)"""
+    change_lang_text = CHANGE_LANGUAGE_TEXT.get(lang_code, CHANGE_LANGUAGE_TEXT["ru"])
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [
+                KeyboardButton(text=get_bot_message("vehicle_lv", lang_code)),
+                KeyboardButton(text=get_bot_message("vehicle_lv_oa", lang_code))
+            ],
+            [
+                KeyboardButton(text=get_bot_message("vehicle_sv", lang_code)),
+                KeyboardButton(text=get_bot_message("vehicle_sv_oa", lang_code))
+            ],
+            [KeyboardButton(text=get_bot_message("change_form_category", lang_code))],
+            [KeyboardButton(text=change_lang_text)]
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=False
+    )
 
 
 @router.message(Command("start"))
@@ -69,7 +106,7 @@ async def cmd_start(message: types.Message, state: FSMContext):
 async def process_language_selection(message: types.Message, state: FSMContext):
     """
     Handler for language selection from keyboard.
-    Shows vehicle type selection buttons.
+    Shows form category selection (Чек-листы / Отчет о ТО).
     """
     lang_map = {
         LANGUAGE_NAMES["ru"]: "ru",
@@ -80,37 +117,82 @@ async def process_language_selection(message: types.Message, state: FSMContext):
 
     lang_code = lang_map.get(message.text, "ru")
 
-    # Сохраняем язык в FSM
-    await state.set_state(InspectionForm.waiting_for_vehicle_type)
+    # Сохраняем язык в FSM и переходим к выбору категории
+    await state.set_state(InspectionForm.waiting_for_form_category)
     await state.update_data(lang=lang_code)
 
-    # Показываем кнопки выбора типа техники
-    change_lang_text = CHANGE_LANGUAGE_TEXT.get(lang_code, CHANGE_LANGUAGE_TEXT["ru"])
-
-    kb = ReplyKeyboardMarkup(
-        keyboard=[
-            [
-                KeyboardButton(text=get_bot_message("vehicle_lv", lang_code)),
-                KeyboardButton(text=get_bot_message("vehicle_lv_oa", lang_code))
-            ],
-            [
-                KeyboardButton(text=get_bot_message("vehicle_sv", lang_code)),
-                KeyboardButton(text=get_bot_message("vehicle_sv_oa", lang_code))
-            ],
-            [KeyboardButton(text=change_lang_text)]
-        ],
-        resize_keyboard=True,
-        one_time_keyboard=False
-    )
-
-    message_text = get_bot_message("language_selected", lang_code)
+    kb = _build_category_keyboard(lang_code)
+    message_text = get_bot_message("select_form_category", lang_code)
     await message.answer(message_text, reply_markup=kb)
+
+
+@router.message(InspectionForm.waiting_for_form_category)
+async def process_form_category_selection(message: types.Message, state: FSMContext):
+    """
+    Handler for form category selection.
+    Чек-листы → выбор типа техники.
+    Отчет о ТО → сразу Mini App.
+    """
+    data = await state.get_data()
+    lang_code = data.get("lang", "ru")
+
+    # Проверяем, не нажал ли пользователь "Изменить язык"
+    change_lang_texts = list(CHANGE_LANGUAGE_TEXT.values())
+    if message.text in change_lang_texts:
+        await state.clear()
+        await cmd_start(message, state)
+        return
+
+    # Определяем категорию
+    category_checklist_map = {}
+    category_maintenance_map = {}
+    for lang in ["ru", "en", "kk", "uz"]:
+        category_checklist_map[get_bot_message("category_checklist", lang)] = True
+        category_maintenance_map[get_bot_message("category_maintenance", lang)] = True
+
+    if message.text in category_checklist_map:
+        # Чек-листы → показываем выбор типа техники
+        await state.set_state(InspectionForm.waiting_for_vehicle_type)
+        await state.update_data(lang=lang_code)
+
+        kb = _build_vehicle_type_keyboard(lang_code)
+        message_text = get_bot_message("select_vehicle_type", lang_code)
+        await message.answer(message_text, reply_markup=kb)
+
+    elif message.text in category_maintenance_map:
+        # Отчет о ТО → сразу открываем Mini App
+        user_id = message.from_user.id
+        app_url = f"{WEB_APP_URL}?lang={lang_code}&form_type=to&tg_user_id={user_id}"
+
+        logging.info(f"Opening TO Mini App for user {user_id} with language {lang_code}")
+
+        button_text = get_bot_message("fill_to_form_button", lang_code)
+        change_lang_text = CHANGE_LANGUAGE_TEXT.get(lang_code, CHANGE_LANGUAGE_TEXT["ru"])
+
+        kb = ReplyKeyboardMarkup(
+            keyboard=[
+                [KeyboardButton(text=button_text, web_app=WebAppInfo(url=app_url))],
+                [KeyboardButton(text=get_bot_message("change_form_category", lang_code))],
+                [KeyboardButton(text=change_lang_text)]
+            ],
+            resize_keyboard=True,
+            one_time_keyboard=False
+        )
+
+        await state.clear()
+        await state.update_data(lang=lang_code)
+        await message.answer(button_text, reply_markup=kb)
+
+    else:
+        # Неизвестная кнопка — повторяем выбор категории
+        message_text = get_bot_message("select_form_category", lang_code)
+        await message.answer(message_text)
 
 
 @router.message(InspectionForm.waiting_for_vehicle_type)
 async def process_vehicle_type_selection(message: types.Message, state: FSMContext):
     """
-    Handler for vehicle type selection.
+    Handler for vehicle type selection (checklist forms only).
     Opens the Mini App with selected language and form type.
     """
     data = await state.get_data()
@@ -121,6 +203,17 @@ async def process_vehicle_type_selection(message: types.Message, state: FSMConte
     if message.text in change_lang_texts:
         await state.clear()
         await cmd_start(message, state)
+        return
+
+    # Проверяем, не нажал ли пользователь "Выбрать другую категорию"
+    change_category_texts = [get_bot_message("change_form_category", lang)
+                             for lang in ["ru", "en", "kk", "uz"]]
+    if message.text in change_category_texts:
+        await state.set_state(InspectionForm.waiting_for_form_category)
+        await state.update_data(lang=lang_code)
+        kb = _build_category_keyboard(lang_code)
+        message_text = get_bot_message("select_form_category", lang_code)
+        await message.answer(message_text, reply_markup=kb)
         return
 
     # Определяем тип формы по тексту кнопки
@@ -145,15 +238,16 @@ async def process_vehicle_type_selection(message: types.Message, state: FSMConte
 
     logging.info(f"Opening Mini App for user {user_id} with language {lang_code}, form_type {form_type}")
 
-    # Создаем клавиатуру с кнопкой для открытия Mini App + смена типа + смена языка
+    # Создаем клавиатуру с кнопкой для открытия Mini App + смена категории + смена языка
     button_text = get_bot_message("fill_form_button", lang_code)
     change_lang_text = CHANGE_LANGUAGE_TEXT.get(lang_code, CHANGE_LANGUAGE_TEXT["ru"])
 
     kb = ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text=button_text, web_app=WebAppInfo(url=app_url))],
-            [KeyboardButton(text=change_lang_text)],
-            [KeyboardButton(text=get_bot_message("change_vehicle_type", lang_code))]
+            [KeyboardButton(text=get_bot_message("change_vehicle_type", lang_code))],
+            [KeyboardButton(text=get_bot_message("change_form_category", lang_code))],
+            [KeyboardButton(text=change_lang_text)]
         ],
         resize_keyboard=True,
         one_time_keyboard=False
@@ -161,7 +255,7 @@ async def process_vehicle_type_selection(message: types.Message, state: FSMConte
 
     await state.clear()
     await state.update_data(lang=lang_code)
-    await message.answer(get_bot_message("fill_form_button", lang_code), reply_markup=kb)
+    await message.answer(button_text, reply_markup=kb)
 
 
 @router.message(F.text.in_([
@@ -181,25 +275,29 @@ async def process_change_vehicle_type(message: types.Message, state: FSMContext)
     await state.set_state(InspectionForm.waiting_for_vehicle_type)
     await state.update_data(lang=lang_code)
 
-    change_lang_text = CHANGE_LANGUAGE_TEXT.get(lang_code, CHANGE_LANGUAGE_TEXT["ru"])
-
-    kb = ReplyKeyboardMarkup(
-        keyboard=[
-            [
-                KeyboardButton(text=get_bot_message("vehicle_lv", lang_code)),
-                KeyboardButton(text=get_bot_message("vehicle_lv_oa", lang_code))
-            ],
-            [
-                KeyboardButton(text=get_bot_message("vehicle_sv", lang_code)),
-                KeyboardButton(text=get_bot_message("vehicle_sv_oa", lang_code))
-            ],
-            [KeyboardButton(text=change_lang_text)]
-        ],
-        resize_keyboard=True,
-        one_time_keyboard=False
-    )
-
+    kb = _build_vehicle_type_keyboard(lang_code)
     await message.answer(get_bot_message("select_vehicle_type", lang_code), reply_markup=kb)
+
+
+@router.message(F.text.in_([
+    get_bot_message("change_form_category", "ru"),
+    get_bot_message("change_form_category", "en"),
+    get_bot_message("change_form_category", "kk"),
+    get_bot_message("change_form_category", "uz")
+]))
+async def process_change_form_category(message: types.Message, state: FSMContext):
+    """
+    Handler for changing form category.
+    Returns to category selection, keeping the language.
+    """
+    data = await state.get_data()
+    lang_code = data.get("lang", "ru")
+
+    await state.set_state(InspectionForm.waiting_for_form_category)
+    await state.update_data(lang=lang_code)
+
+    kb = _build_category_keyboard(lang_code)
+    await message.answer(get_bot_message("select_form_category", lang_code), reply_markup=kb)
 
 
 @router.message(F.text.in_([

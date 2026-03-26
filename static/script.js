@@ -59,13 +59,23 @@ document.addEventListener('DOMContentLoaded', () => {
         loadDepartments();
     }
 
+    const responsibleSelect = document.getElementById('responsible_person_uid');
+    if (responsibleSelect) {
+        loadResponsiblePersons();
+    }
+
+    const repairTypeSelect = document.getElementById('repair_type_uid');
+    if (repairTypeSelect) {
+        loadRepairTypes();
+    }
+
     // Listen to MainButton click
     tg.MainButton.onClick(() => {
         submitForm();
     });
 
     // Add input listeners to remove error styles
-    const inputs = document.querySelectorAll('input');
+    const inputs = document.querySelectorAll('input, textarea');
     inputs.forEach(input => {
         input.addEventListener('input', () => {
             const card = input.closest('.question-card');
@@ -80,6 +90,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Setup conditional date fields for insurance and technical_inspection
     setupConditionalDateFields();
+
+    // Load nomenclature for TO form repeaters, then init tables
+    if (window.APP_FORM_TYPE === 'to') {
+        loadNomenclature().then(() => initTables());
+    } else {
+        initTables();
+    }
 });
 
 /**
@@ -182,13 +199,22 @@ let machinesData = [];
 let driversData = [];
 let mechanicsData = [];
 let departmentsData = [];
+let responsiblePersonsData = [];
+let repairTypesData = [];
+let nomenclatureData = [];
 
 async function loadMachines() {
     try {
-        const response = await fetch('api/machines');
-        const machines = await response.json();
-        machinesData = machines; // Cache for filtering
-        renderDropdownList(machines, 'machine_uid', formatMachine);
+        let category = 'all';
+        const formType = window.APP_FORM_TYPE || '';
+        if (formType === 'lv' || formType === 'lv_oa') category = 'lv';
+        else if (formType === 'sv' || formType === 'sv_oa') category = 'sv';
+
+        const response = await fetch(`api/machines?category=${category}`);
+        machinesData = await response.json();
+        setupModalSelect(machinesData, 'machine_uid', formatMachine, (item) => {
+            if (window.APP_FORM_TYPE === 'to') onMachineSelectedTO(item);
+        });
     } catch (e) {
         console.error("Failed to load machines:", e);
         showError(t('loading_machines_error'));
@@ -198,9 +224,8 @@ async function loadMachines() {
 async function loadDrivers() {
     try {
         const response = await fetch('api/drivers');
-        const drivers = await response.json();
-        driversData = drivers; // Cache for filtering
-        renderDropdownList(drivers, 'driver_uid', formatEmployee);
+        driversData = await response.json();
+        setupModalSelect(driversData, 'driver_uid', formatEmployee);
     } catch (e) {
         console.error("Failed to load drivers:", e);
         showError(t('loading_drivers_error'));
@@ -210,29 +235,66 @@ async function loadDrivers() {
 async function loadMechanics() {
     try {
         const response = await fetch('api/mechanics');
-        const mechanics = await response.json();
-        mechanicsData = mechanics; // Cache for filtering
-        renderDropdownList(mechanics, 'mechanic_uid', formatEmployee);
+        mechanicsData = await response.json();
+        setupModalSelect(mechanicsData, 'mechanic_uid', formatEmployee);
     } catch (e) {
         console.error("Failed to load mechanics:", e);
         showError(t('loading_mechanics_error'));
     }
 }
 
+async function loadResponsiblePersons() {
+    try {
+        const [driversRes, mechanicsRes] = await Promise.all([
+            fetch('api/drivers'),
+            fetch('api/mechanics')
+        ]);
+        const drivers = await driversRes.json();
+        const mechanics = await mechanicsRes.json();
+        responsiblePersonsData = [...drivers, ...mechanics];
+        setupModalSelect(responsiblePersonsData, 'responsible_person_uid', formatEmployee);
+    } catch (e) {
+        console.error("Failed to load responsible persons:", e);
+        showError(t('loading_drivers_error'));
+    }
+}
+
+async function loadRepairTypes() {
+    try {
+        const response = await fetch('api/repair_types');
+        repairTypesData = await response.json();
+        setupModalSelect(repairTypesData, 'repair_type_uid', formatRepairType, (item, displayText) => {
+            if (window.APP_FORM_TYPE === 'to') onRepairTypeSelected(displayText);
+        });
+    } catch (e) {
+        console.error("Failed to load repair types:", e);
+        showError('Failed to load repair types');
+    }
+}
+
 async function loadDepartments() {
     try {
         const response = await fetch('api/departments');
-        const departments = await response.json();
-        departmentsData = departments; // Cache for filtering
-        renderDropdownList(departments, 'department_uid', formatDepartment);
+        departmentsData = await response.json();
+        setupModalSelect(departmentsData, 'department_uid', formatDepartment);
     } catch (e) {
         console.error("Failed to load departments:", e);
         showError(t('loading_departments_error') || 'Failed to load departments');
     }
 }
 
+async function loadNomenclature() {
+    try {
+        const response = await fetch('api/nomenclature');
+        nomenclatureData = await response.json();
+        console.log(`Loaded ${nomenclatureData.length} nomenclature items`);
+    } catch (e) {
+        console.error("Failed to load nomenclature:", e);
+    }
+}
+
 function formatMachine(machine) {
-    return `Модель: ${machine.model} | ГРНЗ: ${machine.license_plate || 'Нет ГРНЗ'} | ИН: ${machine.inventory_number}`;
+    return `${machine.model} | ${machine.license_plate || 'Нет ГРНЗ'} | ${machine.inventory_number}`;
 }
 
 function formatEmployee(employee) {
@@ -243,62 +305,51 @@ function formatDepartment(department) {
     return department.name;
 }
 
-function renderDropdownList(items, fieldId, formatFunction) {
-    const listContainer = document.getElementById(`dropdown_${fieldId}`);
-    const searchInput = document.getElementById(`search_${fieldId}`);
+function formatRepairType(repairType) {
+    return repairType.name;
+}
+
+/**
+ * Настраивает модальный выбор для поля формы.
+ * Кнопка trigger_${fieldId} открывает модалку, выбор записывается в hidden input.
+ * @param {Array} items - массив элементов
+ * @param {string} fieldId - ID скрытого поля
+ * @param {Function} formatFunction - форматирование отображаемого текста
+ * @param {Function} [onSelectCallback] - дополнительный callback (item, displayText)
+ */
+function setupModalSelect(items, fieldId, formatFunction, onSelectCallback) {
+    const triggerBtn = document.getElementById(`trigger_${fieldId}`);
     const hiddenInput = document.getElementById(fieldId);
+    if (!triggerBtn || !hiddenInput) return;
 
-    if (!listContainer || !searchInput) return;
+    const label = triggerBtn.textContent.trim();
 
-    // Clear list
-    listContainer.innerHTML = '';
+    triggerBtn.addEventListener('click', () => {
+        // Преобразуем items в формат {id, name} для модалки
+        const modalItems = items.map(item => ({
+            _original: item,
+            id: item.id,
+            name: formatFunction(item)
+        }));
 
-    items.forEach(item => {
-        const dropdownItem = document.createElement('div');
-        dropdownItem.className = 'dropdown-item';
-        dropdownItem.textContent = formatFunction(item);
-        dropdownItem.dataset.uid = item.id;
+        openSelectionModal(label.replace('...', ''), modalItems, (selected) => {
+            triggerBtn.textContent = selected.name;
+            triggerBtn.classList.add('has-value');
+            hiddenInput.value = selected.id;
 
-        dropdownItem.addEventListener('click', () => {
-            searchInput.value = dropdownItem.textContent;
-            hiddenInput.value = item.id;
-            listContainer.style.display = 'none';
-            searchInput.closest('.question-card').classList.remove('error');
-            updateConditionalNote(fieldId, dropdownItem.textContent);
-        });
+            // Убираем ошибку
+            const card = triggerBtn.closest('.question-card');
+            if (card) card.classList.remove('error');
 
-        listContainer.appendChild(dropdownItem);
-    });
+            // Conditional notes
+            updateConditionalNote(fieldId, selected.name);
 
-    // Search Logic - attach once
-    if (!searchInput.hasAttribute('data-initialized')) {
-        searchInput.setAttribute('data-initialized', 'true');
-
-        searchInput.addEventListener('focus', () => {
-            listContainer.style.display = 'block';
-        });
-
-        // Hide when clicking outside
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest(`#search_${fieldId}`) && !e.target.closest(`#dropdown_${fieldId}`)) {
-                listContainer.style.display = 'none';
+            // Extra callback
+            if (onSelectCallback) {
+                onSelectCallback(selected._original, selected.name);
             }
         });
-
-        searchInput.addEventListener('input', (e) => {
-            const term = e.target.value.toLowerCase();
-            const dropdownItems = listContainer.querySelectorAll('.dropdown-item');
-            listContainer.style.display = 'block';
-
-            dropdownItems.forEach(dropdownItem => {
-                if (dropdownItem.textContent.toLowerCase().includes(term)) {
-                    dropdownItem.style.display = 'block';
-                } else {
-                    dropdownItem.style.display = 'none';
-                }
-            });
-        });
-    }
+    });
 }
 
 function validateForm() {
@@ -311,11 +362,15 @@ function validateForm() {
         if (card.style.display === 'none') return; // пропускаем скрытые условные поля
 
         const isOdometerGroup = card.classList.contains('odometer-group');
-        const input = card.querySelector('input[type="text"], input[type="date"], input[type="number"]');
+        const input = card.querySelector('input[type="text"], input[type="date"], input[type="number"], textarea');
+        const hiddenSelect = card.querySelector('.custom-select-container input[type="hidden"]');
         const radios = card.querySelectorAll('input[type="radio"]');
         let filled = false;
 
-        if (isOdometerGroup) {
+        if (hiddenSelect) {
+            // Modal-based select — check hidden input has a value
+            if (hiddenSelect.value.trim() !== '') filled = true;
+        } else if (isOdometerGroup) {
             // Одометр: достаточно заполнить хотя бы одно поле
             card.querySelectorAll('.odometer-input').forEach(inp => {
                 if (inp.value.trim() !== '') filled = true;
@@ -458,10 +513,23 @@ async function submitForm() {
         console.log('✅ Form type captured:', window.APP_FORM_TYPE);
     }
 
+    // Collect dynamic table data
+    const materialsData = collectRepeaterData('materials_table');
+    if (materialsData.length > 0) {
+        data['materials_table'] = materialsData;
+    }
+    const worksData = collectRepeaterData('works_table');
+    if (worksData.length > 0) {
+        data['works_table'] = worksData;
+    }
+
     console.log('📤 Submitting data:', JSON.stringify(data, null, 2));
 
+    // Определяем endpoint по типу формы
+    const submitUrl = (window.APP_FORM_TYPE === 'to') ? 'submit_to' : 'submit';
+
     try {
-        const response = await fetch('submit', {
+        const response = await fetch(submitUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -492,4 +560,291 @@ function showError(msg) {
     const errorDiv = document.getElementById('submit-error');
     errorDiv.textContent = msg;
     errorDiv.style.display = 'block';
+}
+
+/**
+ * Обработка выбора машины в форме ТО:
+ * - Показывает километраж (lv) или моточасы (sv) в зависимости от типа машины
+ * - Загружает и показывает последний введенный пробег
+ */
+// ============================================================
+// Repeater Functions (Табличные части — каждая запись как карточка)
+// ============================================================
+
+function addRepeaterEntry(repeaterId) {
+    const container = document.getElementById(`repeater_${repeaterId}`);
+    const entriesContainer = document.getElementById(`entries_${repeaterId}`);
+    if (!container || !entriesContainer) return;
+
+    const fields = JSON.parse(container.dataset.fields);
+    const entryIndex = entriesContainer.children.length;
+
+    // Карточка записи (как question-card)
+    const card = document.createElement('div');
+    card.className = 'question-card repeater-entry';
+    card.dataset.entryIndex = entryIndex;
+    card.dataset.repeaterId = repeaterId;
+
+    // Заголовок с номером и кнопкой удаления
+    const header = document.createElement('div');
+    header.className = 'repeater-entry-header';
+
+    const title = document.createElement('span');
+    title.className = 'repeater-entry-title';
+    title.textContent = `#${entryIndex + 1}`;
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'remove-entry-btn';
+    removeBtn.textContent = '✕';
+    removeBtn.onclick = function() {
+        card.remove();
+        // Перенумеровать оставшиеся
+        renumberEntries(repeaterId);
+    };
+
+    header.appendChild(title);
+    header.appendChild(removeBtn);
+    card.appendChild(header);
+
+    // Поля — каждое в своём блоке
+    fields.forEach(field => {
+        const fieldBlock = document.createElement('div');
+        fieldBlock.className = 'repeater-field';
+
+        const label = document.createElement('label');
+        label.className = 'question-label';
+        label.textContent = field.label;
+        fieldBlock.appendChild(label);
+
+        if (field.type === 'select' && field.select_source) {
+            // Modal-based select for repeater fields
+            const triggerBtn = document.createElement('button');
+            triggerBtn.type = 'button';
+            triggerBtn.className = 'repeater-select-trigger';
+            triggerBtn.textContent = field.label + '...';
+
+            const hiddenUid = document.createElement('input');
+            hiddenUid.type = 'hidden';
+            hiddenUid.name = `${repeaterId}__${entryIndex}__${field.id}_uid`;
+            hiddenUid.dataset.repeaterId = repeaterId;
+            hiddenUid.dataset.fieldId = field.id + '_uid';
+
+            const hiddenName = document.createElement('input');
+            hiddenName.type = 'hidden';
+            hiddenName.name = `${repeaterId}__${entryIndex}__${field.id}_name`;
+            hiddenName.dataset.repeaterId = repeaterId;
+            hiddenName.dataset.fieldId = field.id + '_name';
+
+            triggerBtn.addEventListener('click', () => {
+                let sourceData = [];
+                if (field.select_source === 'nomenclature') sourceData = nomenclatureData;
+                if (field.select_source === 'units') sourceData = unitsData;
+
+                openSelectionModal(field.label, sourceData, (item) => {
+                    triggerBtn.textContent = item.name;
+                    triggerBtn.classList.add('has-value');
+                    hiddenUid.value = item.id || '';
+                    hiddenName.value = item.name;
+                });
+            });
+
+            fieldBlock.appendChild(triggerBtn);
+            fieldBlock.appendChild(hiddenUid);
+            fieldBlock.appendChild(hiddenName);
+        } else {
+            // Regular input
+            const input = document.createElement('input');
+            input.type = field.type === 'number' ? 'number' : 'text';
+            input.className = 'text-input';
+            input.name = `${repeaterId}__${entryIndex}__${field.id}`;
+            input.dataset.repeaterId = repeaterId;
+            input.dataset.fieldId = field.id;
+            if (field.type === 'number') {
+                input.min = '0';
+                input.step = 'any';
+                input.placeholder = '0';
+            }
+            fieldBlock.appendChild(input);
+        }
+
+        card.appendChild(fieldBlock);
+    });
+
+    entriesContainer.appendChild(card);
+}
+
+function renumberEntries(repeaterId) {
+    const entriesContainer = document.getElementById(`entries_${repeaterId}`);
+    if (!entriesContainer) return;
+    entriesContainer.querySelectorAll('.repeater-entry').forEach((card, i) => {
+        card.dataset.entryIndex = i;
+        const title = card.querySelector('.repeater-entry-title');
+        if (title) title.textContent = `#${i + 1}`;
+    });
+}
+
+function collectRepeaterData(repeaterId) {
+    const entriesContainer = document.getElementById(`entries_${repeaterId}`);
+    if (!entriesContainer) return [];
+
+    const entries = [];
+    entriesContainer.querySelectorAll('.repeater-entry').forEach(card => {
+        const rowData = {};
+        let hasValue = false;
+        // Collect all inputs including hidden fields (uid, name for selects)
+        card.querySelectorAll('input').forEach(input => {
+            const fieldId = input.dataset.fieldId;
+            if (!fieldId) return;
+            // Skip search inputs (role=search) — they're just for UI
+            if (input.dataset.role === 'search') return;
+            rowData[fieldId] = input.value;
+            if (input.value.trim()) hasValue = true;
+        });
+        if (hasValue) entries.push(rowData);
+    });
+    return entries;
+}
+
+// Initialize repeaters — add one empty entry by default
+function initTables() {
+    document.querySelectorAll('.repeater-container').forEach(container => {
+        const repeaterId = container.id.replace('repeater_', '');
+        addRepeaterEntry(repeaterId);
+    });
+}
+
+// ============================================================
+// Static units data
+// ============================================================
+const unitsData = [
+    { id: '', name: 'шт' },
+    { id: '', name: 'кг' },
+    { id: '', name: 'л' },
+    { id: '', name: 'м' },
+    { id: '', name: 'компл' },
+    { id: '', name: 'упак' },
+    { id: '', name: 'п.м.' },
+    { id: '', name: 'м²' },
+    { id: '', name: 'м³' },
+];
+
+// ============================================================
+// Selection Modal
+// ============================================================
+function openSelectionModal(title, items, onSelect) {
+    const modal = document.getElementById('selectionModal');
+    const titleEl = document.getElementById('modalTitle');
+    const searchEl = document.getElementById('modalSearch');
+    const listEl = document.getElementById('modalList');
+
+    titleEl.textContent = title;
+    searchEl.value = '';
+    listEl.innerHTML = '';
+
+    items.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'modal-list-item';
+        div.textContent = item.name;
+        div.addEventListener('click', () => {
+            onSelect(item);
+            closeSelectionModal();
+        });
+        listEl.appendChild(div);
+    });
+
+    searchEl.oninput = (e) => {
+        const term = e.target.value.toLowerCase();
+        listEl.querySelectorAll('.modal-list-item').forEach(el => {
+            el.style.display = el.textContent.toLowerCase().includes(term) ? '' : 'none';
+        });
+    };
+
+    modal.style.display = 'flex';
+}
+
+function closeSelectionModal() {
+    document.getElementById('selectionModal').style.display = 'none';
+}
+
+// Close modal on overlay click
+document.addEventListener('click', (e) => {
+    const modal = document.getElementById('selectionModal');
+    if (modal && e.target === modal) {
+        closeSelectionModal();
+    }
+});
+
+// ============================================================
+// Conditional: Repair type → breakdown_reason / inspection_result
+// ============================================================
+function onRepairTypeSelected(selectedText) {
+    const isUnplanned = selectedText.toLowerCase().includes('внеплановый');
+    const breakdownCard = document.getElementById('card_breakdown_reason');
+    const inspectionCard = document.getElementById('card_inspection_result');
+
+    if (breakdownCard) {
+        breakdownCard.style.display = isUnplanned ? 'block' : 'none';
+        breakdownCard.dataset.required = isUnplanned ? 'True' : 'False';
+        if (!isUnplanned) {
+            const ta = breakdownCard.querySelector('textarea');
+            if (ta) ta.value = '';
+        }
+    }
+    if (inspectionCard) {
+        inspectionCard.style.display = isUnplanned ? 'none' : 'block';
+        inspectionCard.dataset.required = isUnplanned ? 'False' : 'True';
+        if (isUnplanned) {
+            const ta = inspectionCard.querySelector('textarea');
+            if (ta) ta.value = '';
+        }
+    }
+}
+
+// ============================================================
+// TO form: Machine selection handler
+// ============================================================
+async function onMachineSelectedTO(machine) {
+    const vehicleType = machine.vehicle_type || 'lv';
+    console.log('🔧 TO machine selected:', machine.model, 'vehicle_type:', vehicleType, 'id:', machine.id);
+
+    const mileageCard = document.getElementById('card_to_mileage');
+    const motorhoursCard = document.getElementById('card_to_motorhours');
+    const lastMileageCard = document.getElementById('card_last_mileage_display');
+
+    // Показываем нужное поле, скрываем другое
+    if (vehicleType === 'lv') {
+        if (mileageCard) mileageCard.style.display = 'block';
+        if (motorhoursCard) {
+            motorhoursCard.style.display = 'none';
+            const inp = motorhoursCard.querySelector('input');
+            if (inp) inp.value = '';
+        }
+    } else {
+        if (motorhoursCard) motorhoursCard.style.display = 'block';
+        if (mileageCard) {
+            mileageCard.style.display = 'none';
+            const inp = mileageCard.querySelector('input');
+            if (inp) inp.value = '';
+        }
+    }
+
+    // Загружаем последний пробег
+    if (lastMileageCard) {
+        try {
+            const resp = await fetch(`api/last_mileage/${machine.id}`);
+            const data = await resp.json();
+            const lastMileageInput = document.getElementById('last_mileage_display');
+            if (lastMileageInput) {
+                if (vehicleType === 'lv') {
+                    lastMileageInput.value = `${data.mileage || 0} км`;
+                } else {
+                    lastMileageInput.value = `${data.motorhours || 0} м/ч`;
+                }
+            }
+            lastMileageCard.style.display = 'block';
+        } catch (e) {
+            console.error('Failed to load last mileage:', e);
+        }
+    }
 }

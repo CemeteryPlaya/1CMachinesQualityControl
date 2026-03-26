@@ -17,7 +17,13 @@ BOT_MESSAGES = {
         "vehicle_lv_oa": "🚗 Легковые — выезд",
         "vehicle_sv": "🚜 Спецтехника — на территории",
         "vehicle_sv_oa": "🚜 Спецтехника — выезд",
-        "change_vehicle_type": "🔀 Выбрать другой тип техники"
+        "change_vehicle_type": "🔀 Выбрать другой тип техники",
+        "select_form_category": "Выберите категорию формы:",
+        "category_checklist": "📋 Чек-листы",
+        "category_maintenance": "🔧 Отчет о проведенном ТО",
+        "change_form_category": "🔀 Выбрать другую категорию",
+        "fill_to_form_button": "📝 Заполнить отчет о ТО",
+        "to_submission_confirmed": "✅ Отчет о ТО отправлен.\nДата и время отправки: {datetime}"
     },
     "en": {
         "welcome": "Hello! Select a language to fill out the equipment inspection form:",
@@ -30,7 +36,13 @@ BOT_MESSAGES = {
         "vehicle_lv_oa": "🚗 Passenger — off-site",
         "vehicle_sv": "🚜 Special equipment — on-site",
         "vehicle_sv_oa": "🚜 Special equipment — off-site",
-        "change_vehicle_type": "🔀 Select different vehicle type"
+        "change_vehicle_type": "🔀 Select different vehicle type",
+        "select_form_category": "Select form category:",
+        "category_checklist": "📋 Checklists",
+        "category_maintenance": "🔧 Maintenance Report",
+        "change_form_category": "🔀 Select different category",
+        "fill_to_form_button": "📝 Fill maintenance report",
+        "to_submission_confirmed": "✅ Maintenance report submitted.\nSubmission date and time: {datetime}"
     },
     "kk": {
         "welcome": "Сәлеметсіз бе! Техника тексеру нысанын толтыру үшін тілді таңдаңыз:",
@@ -43,7 +55,13 @@ BOT_MESSAGES = {
         "vehicle_lv_oa": "🚗 Жеңіл көлік — шығу",
         "vehicle_sv": "🚜 Арнайы техника — аумақта",
         "vehicle_sv_oa": "🚜 Арнайы техника — шығу",
-        "change_vehicle_type": "🔀 Басқа техника түрін таңдау"
+        "change_vehicle_type": "🔀 Басқа техника түрін таңдау",
+        "select_form_category": "Форма санатын таңдаңыз:",
+        "category_checklist": "📋 Тексеру тізімдері",
+        "category_maintenance": "🔧 ТҚ есебі",
+        "change_form_category": "🔀 Басқа санатты таңдау",
+        "fill_to_form_button": "📝 ТҚ есебін толтыру",
+        "to_submission_confirmed": "✅ ТҚ есебі жіберілді.\nЖіберу күні мен уақыты: {datetime}"
     },
     "uz": {
         "welcome": "Assalomu aleykum! Texnika tekshirish formasini to'ldirish uchun tilni tanlang:",
@@ -56,7 +74,13 @@ BOT_MESSAGES = {
         "vehicle_lv_oa": "🚗 Yengil avtomobil — tashqarida",
         "vehicle_sv": "🚜 Maxsus texnika — hududda",
         "vehicle_sv_oa": "🚜 Maxsus texnika — tashqarida",
-        "change_vehicle_type": "🔀 Boshqa texnika turini tanlash"
+        "change_vehicle_type": "🔀 Boshqa texnika turini tanlash",
+        "select_form_category": "Forma toifasini tanlang:",
+        "category_checklist": "📋 Tekshiruv ro'yxatlari",
+        "category_maintenance": "🔧 TO hisoboti",
+        "change_form_category": "🔀 Boshqa toifani tanlash",
+        "fill_to_form_button": "📝 TO hisobotini to'ldirish",
+        "to_submission_confirmed": "✅ TO hisoboti yuborildi.\nYuborish sanasi va vaqti: {datetime}"
     }
 }
 
@@ -206,7 +230,145 @@ FIELD_LABELS = {
         "kk": "(арнайы техника болса — 0 жазу)",
         "uz": "(agar maxsus texnika bo'lsa — 0 yozing)"
     },
-        "capacity_of_fuel_in_fueltank": {
+    "responsible_person": {
+        "ru": "Ответственное лицо",
+        "en": "Responsible person",
+        "kk": "Жауапты тұлға",
+        "uz": "Mas'ul shaxs"
+    },
+    "repair_type": {
+        "ru": "Вид ремонта",
+        "en": "Repair type",
+        "kk": "Жөндеу түрі",
+        "uz": "Ta'mirlash turi"
+    },
+    "breakdown_reason": {
+        "ru": "Причина поломки техники",
+        "en": "Breakdown reason",
+        "kk": "Техниканың бұзылу себебі",
+        "uz": "Buzilish sababi"
+    },
+    "repair_start_date": {
+        "ru": "Дата начала ремонта",
+        "en": "Repair start date",
+        "kk": "Жөндеудің басталу күні",
+        "uz": "Ta'mirlash boshlanish sanasi"
+    },
+    "repair_end_date": {
+        "ru": "Дата окончания ремонта",
+        "en": "Repair end date",
+        "kk": "Жөндеудің аяқталу күні",
+        "uz": "Ta'mirlash tugash sanasi"
+    },
+    "downtime_days": {
+        "ru": "Время простоя (дней)",
+        "en": "Downtime (days)",
+        "kk": "Тоқтап тұру уақыты (күн)",
+        "uz": "To'xtash vaqti (kunlar)"
+    },
+    "downtime_hours": {
+        "ru": "Время простоя (часов)",
+        "en": "Downtime (hours)",
+        "kk": "Тоқтап тұру уақыты (сағат)",
+        "uz": "To'xtash vaqti (soatlar)"
+    },
+    "used_parts": {
+        "ru": "Использованные запчасти",
+        "en": "Used parts",
+        "kk": "Қолданылған бөлшектер",
+        "uz": "Ishlatilgan ehtiyot qismlar"
+    },
+    "to_date": {
+        "ru": "Дата проведения ТО",
+        "en": "Maintenance date",
+        "kk": "ТҚ жүргізу күні",
+        "uz": "TO sanasi"
+    },
+    "last_mileage": {
+        "ru": "Последний введенный пробег",
+        "en": "Last recorded mileage",
+        "kk": "Соңғы енгізілген жүгіріс",
+        "uz": "Oxirgi kiritilgan yurish"
+    },
+    "to_mileage": {
+        "ru": "Текущий пробег (км)",
+        "en": "Current mileage (km)",
+        "kk": "Ағымдағы жүгіріс (км)",
+        "uz": "Joriy yurish (km)"
+    },
+    "to_motorhours": {
+        "ru": "Текущие моточасы",
+        "en": "Current engine hours",
+        "kk": "Ағымдағы мотосағаттар",
+        "uz": "Joriy motor soatlari"
+    },
+    "nomenclature": {
+        "ru": "Номенклатура",
+        "en": "Item",
+        "kk": "Номенклатура",
+        "uz": "Nomenklatura"
+    },
+    "quantity": {
+        "ru": "Кол-во",
+        "en": "Qty",
+        "kk": "Саны",
+        "uz": "Soni"
+    },
+    "unit": {
+        "ru": "Ед. изм.",
+        "en": "Unit",
+        "kk": "Өлш. бір.",
+        "uz": "Birlik"
+    },
+    "cost": {
+        "ru": "Стоимость",
+        "en": "Cost",
+        "kk": "Құны",
+        "uz": "Narxi"
+    },
+    "work_type": {
+        "ru": "Вид работ",
+        "en": "Work type",
+        "kk": "Жұмыс түрі",
+        "uz": "Ish turi"
+    },
+    "performer": {
+        "ru": "Исполнитель",
+        "en": "Performer",
+        "kk": "Орындаушы",
+        "uz": "Ijrochi"
+    },
+    "duration": {
+        "ru": "Время выполнения",
+        "en": "Duration",
+        "kk": "Орындау уақыты",
+        "uz": "Bajarish vaqti"
+    },
+    "note": {
+        "ru": "Примечание",
+        "en": "Note",
+        "kk": "Ескертпе",
+        "uz": "Izoh"
+    },
+    "add_row": {
+        "ru": "Добавить строку",
+        "en": "Add row",
+        "kk": "Жол қосу",
+        "uz": "Qator qo'shish"
+    },
+    "comments": {
+        "ru": "Комментарии",
+        "en": "Comments",
+        "kk": "Түсініктемелер",
+        "uz": "Izohlar"
+    },
+    "inspection_result": {
+        "ru": "Результат проверки",
+        "en": "Inspection result",
+        "kk": "Тексеру нәтижесі",
+        "uz": "Tekshiruv natijasi"
+    },
+    "capacity_of_fuel_in_fueltank": {
         "ru": "Объем топлива в баке на момент проверки",
         "en": "Fuel capacity in fuel tank at the time of inspection",
         "kk": "Жанармай қоймасындағы жанармай көлемі тексеру кезінде",
@@ -275,6 +437,36 @@ SECTION_HEADERS = {
         "en": "Documentation",
         "kk": "Құжаттама",
         "uz": "Hujjatlar"
+    },
+    "to_section_general": {
+        "ru": "Общая информация",
+        "en": "General Information",
+        "kk": "Жалпы ақпарат",
+        "uz": "Umumiy ma'lumot"
+    },
+    "to_section_repair": {
+        "ru": "Информация о ремонте",
+        "en": "Repair Information",
+        "kk": "Жөндеу туралы ақпарат",
+        "uz": "Ta'mirlash haqida ma'lumot"
+    },
+    "to_section_downtime": {
+        "ru": "Простой",
+        "en": "Downtime",
+        "kk": "Тоқтап тұру",
+        "uz": "To'xtash"
+    },
+    "to_section_materials": {
+        "ru": "Использованные материалы",
+        "en": "Used Materials",
+        "kk": "Қолданылған материалдар",
+        "uz": "Ishlatilgan materiallar"
+    },
+    "to_section_works": {
+        "ru": "Выполненные работы",
+        "en": "Completed Works",
+        "kk": "Орындалған жұмыстар",
+        "uz": "Bajarilgan ishlar"
     }
 }
 

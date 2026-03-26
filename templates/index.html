@@ -22,7 +22,9 @@
             "loading_mechanics_error": "{{ {'ru': 'Не удалось загрузить список механиков', 'en': 'Failed to load mechanics list', 'kk': 'Механиктер тізімін жүктеу мүмкін болмады', 'uz': 'Mexaniklar ro\'yxatini yuklash muvaffaqiyatsiz tugadi'}[lang] }}",
             "submission_error": "{{ {'ru': 'Ошибка при отправке', 'en': 'Submission error', 'kk': 'Жіберу қатесі', 'uz': 'Yuborish xatosi'}[lang] }}",
             "network_error": "{{ {'ru': 'Ошибка сети. Попробуйте еще раз.', 'en': 'Network error. Please try again.', 'kk': 'Желі қатесі. Қайталап көріңіз.', 'uz': 'Tarmoq xatosi. Iltimos, qayta urinib ko\'ring.'}[lang] }}",
-            "other_placeholder": "{{ {'ru': 'Укажите свой вариант', 'en': 'Specify your option', 'kk': 'Өз нұсқаңызды көрсетіңіз', 'uz': 'Oz variantingizni kiriting'}[lang] }}"
+            "other_placeholder": "{{ {'ru': 'Укажите свой вариант', 'en': 'Specify your option', 'kk': 'Өз нұсқаңызды көрсетіңіз', 'uz': 'Oz variantingizni kiriting'}[lang] }}",
+            "add_row": "{{ {'ru': '+ Добавить строку', 'en': '+ Add row', 'kk': '+ Жол қосу', 'uz': '+ Qator qo\'shish'}[lang] }}",
+            "delete": "{{ {'ru': '✕', 'en': '✕', 'kk': '✕', 'uz': '✕'}[lang] }}"
         };
     </script>
 </head>
@@ -69,10 +71,10 @@
                         <div class="error-msg">Заполните хотя бы одно поле</div>
                     </div>
                 {% elif item.type == 'number' %}
-                    <div class="question-card" data-required="{{ item.required }}">
+                    <div class="question-card" data-required="{{ item.required }}" id="card_{{ item.id }}"{% if item.id in ('to_mileage', 'to_motorhours') %} style="display:none"{% endif %}>
                         <label for="{{ item.id }}" class="question-label">{{ item.label }} {% if item.required %} <span class="required">*</span> {% endif %}</label>
                         {% if item.hint %}<span class="field-hint">{{ item.hint }}</span>{% endif %}
-                        <input type="number" id="{{ item.id }}" name="{{ item.id }}" class="text-input" placeholder="0">
+                        <input type="number" id="{{ item.id }}" name="{{ item.id }}" class="text-input" placeholder="0" min="0">
                         <div class="error-msg">Это поле обязательно</div>
                     </div>
                 {% elif item.type == 'hidden' %}
@@ -81,33 +83,13 @@
                 {% elif item.type == 'select' %}
                     <div class="question-card" data-required="{{ item.required }}" id="card_{{ item.id }}">
                         <label for="{{ item.id }}" class="question-label">{{ item.label }} {% if item.required %} <span class="required">*</span> {% endif %}</label>
-                        <!-- Custom Searchable Dropdown Structure -->
                         <div class="custom-select-container">
-                            {% if item.id == 'machine_uid' %}
-                                <input type="text" id="search_{{ item.id }}" class="text-input search-input" placeholder="Поиск машины..." autocomplete="off">
-                            {% elif item.id == 'driver_uid' %}
-                                <input type="text" id="search_{{ item.id }}" class="text-input search-input" placeholder="Поиск водителя..." autocomplete="off">
-                            {% elif item.id == 'mechanic_uid' %}
-                                <input type="text" id="search_{{ item.id }}" class="text-input search-input" placeholder="Поиск механика..." autocomplete="off">
-                            {% else %}
-                                <input type="text" id="search_{{ item.id }}" class="text-input search-input" placeholder="Поиск структурного подразделения..." autocomplete="off">
-                            {% endif %}
+                            <button type="button" id="trigger_{{ item.id }}" class="repeater-select-trigger" data-field-id="{{ item.id }}">
+                                {{ item.label }}...
+                            </button>
                             <input type="hidden" id="{{ item.id }}" name="{{ item.id }}">
-                            <div id="dropdown_{{ item.id }}" class="custom-dropdown-list" style="display: none;">
-                                <!-- Options will be injected here -->
-                            </div>
                         </div>
-                        {% if item.id == 'machine_uid' %}
-                            <div class="error-msg">Выберите машину из списка</div>
-                        {% elif item.id == 'department_uid' %}
-                            <div class="error-msg">Выберите структурное подразделение из списка</div>
-                        {% elif item.id == 'driver_uid' %}
-                            <div class="error-msg">Выберите водителя из списка</div>
-                        {% elif item.id == 'mechanic_uid' %}
-                            <div class="error-msg">Выберите механика из списка</div>
-                        {% else %}
-                            <div class="error-msg">Это поле обязательно</div>
-                        {% endif %}
+                        <div class="error-msg">Это поле обязательно</div>
                         {% if item.conditional_notes %}
                             <div class="conditional-note" id="note_{{ item.id }}" style="display: none;"
                                  data-field-id="{{ item.id }}"
@@ -142,10 +124,44 @@
                         {% endif %}
                         <div class="error-msg">Это поле обязательно</div>
                     </div>
+                {% elif item.type == 'repeater' %}
+                    <div class="repeater-container" id="repeater_{{ item.id }}" data-fields='{{ item.fields | tojson }}'>
+                        <div class="repeater-entries" id="entries_{{ item.id }}">
+                            <!-- Entries will be added by JS -->
+                        </div>
+                        <div style="padding: 0 0 12px 0;">
+                            <button type="button" class="add-row-btn" onclick="addRepeaterEntry('{{ item.id }}')">
+                                {{ {'ru': '+ Добавить строку', 'en': '+ Add row', 'kk': '+ Жол қосу', 'uz': '+ Qator qo\'shish'}[lang] }}
+                            </button>
+                        </div>
+                    </div>
+                {% elif item.type == 'readonly' %}
+                    <div class="question-card" data-required="False" id="card_{{ item.id }}" style="display:none">
+                        <label for="{{ item.id }}" class="question-label">{{ item.label }}</label>
+                        <input type="text" id="{{ item.id }}" name="{{ item.id }}" class="text-input" readonly style="color: #5f6368; background-color: #f8f9fa;">
+                    </div>
+                {% elif item.type == 'textarea' %}
+                    <div class="question-card" data-required="{{ item.required }}" id="card_{{ item.id }}"{% if item.get('initially_hidden') %} style="display:none"{% endif %}>
+                        <label for="{{ item.id }}" class="question-label">{{ item.label }} {% if item.required %} <span class="required">*</span> {% endif %}</label>
+                        <textarea id="{{ item.id }}" name="{{ item.id }}" class="text-input textarea-input" rows="4" {% if item.maxlength %}maxlength="{{ item.maxlength }}"{% endif %} placeholder=""></textarea>
+                        <div class="error-msg">Это поле обязательно</div>
+                    </div>
                 {% endif %}
             {% endfor %}
             <div id="submit-error" class="submit-error" style="display: none;"></div>
         </form>
+    </div>
+
+    <!-- Selection Modal -->
+    <div id="selectionModal" class="modal-overlay" style="display:none">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle"></h3>
+                <button type="button" class="modal-close-btn" onclick="closeSelectionModal()">&times;</button>
+            </div>
+            <input type="text" id="modalSearch" class="text-input modal-search" placeholder="Поиск..." autocomplete="off">
+            <div id="modalList" class="modal-list"></div>
+        </div>
     </div>
 
     <script src="{{ url_for('static', filename='script.js') }}"></script>
