@@ -4,7 +4,9 @@ import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from importlib import import_module
-from database import upsert_machine, get_all_machines, upsert_employee, get_all_employees
+from database import (upsert_machine, get_all_machines, upsert_employee, get_all_employees,
+                       upsert_repair_type, get_all_repair_types,
+                       upsert_nomenclature, get_all_nomenclature)
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +26,20 @@ ODATA_BASE_URL = os.getenv("ODATA_BASE_URL")
 
 # URL документа ЧекЛистОсмотра для POST
 ODATA_DOC_URL = os.getenv("ODATA_DOC_URL")
+
+# URL справочника видов ТО
+ODATA_REPAIR_TYPES_URL = os.getenv("ODATA_REPAIR_TYPES_URL")
+
+# URL документа ПроведениеТО для POST
+ODATA_TO_DOC_URL = os.getenv("ODATA_TO_DOC_URL")
+
+# URL регистра сведений ИсторияПробега для POST
+ODATA_MILEAGE_REGISTER_URL = os.getenv("ODATA_MILEAGE_REGISTER_URL")
+
+# URL справочника Номенклатура
+ODATA_NOMENCLATURE_URL = os.getenv("ODATA_NOMENCLATURE_URL")
+# Код папки "Автозапчасти" в справочнике Номенклатура
+NOMENCLATURE_PARENT_CODE = os.getenv("NOMENCLATURE_PARENT_CODE", "00000000394")
 
 
 def _get_auth():
@@ -52,6 +68,38 @@ def sync_machines() -> List[Dict[str, Any]]:
     return fetch_machines()
 
 
+_LV_VEHICLE_TYPES = {
+    # С пробелами (Description из 1С)
+    "легковой автомобиль",
+    "газель",
+    "внедорожник",
+    "автобус",
+    "машина бортовая 1,5 тн",
+    "onboard machine 1.5 tons",
+    # Без пробелов (имя значения перечисления OData)
+    "легковойавтомобиль",
+    "машинабортовая1,5тн",
+    "onboardmachine1.5tons",
+}
+
+
+def _classify_vehicle_type(raw_type: str) -> str:
+    """Определяет категорию машины по значению бсо_ВидМашины из 1С.
+    Поддерживает как Description (с пробелами), так и имя enum (без пробелов).
+    """
+    if not raw_type:
+        return "lv"
+    normalized = raw_type.strip().lower()
+    if normalized in _LV_VEHICLE_TYPES:
+        return "lv"
+    # Дополнительно: проверяем вхождение ключевых слов
+    lv_keywords = ("легков", "газель", "внедорожник", "автобус", "бортов", "onboard")
+    for kw in lv_keywords:
+        if kw in normalized:
+            return "lv"
+    return "sv"
+
+
 def fetch_machines() -> List[Dict[str, Any]]:
     if not ODATA_URL:
         logger.warning("ODATA_URL not set. returning local data.")
@@ -64,18 +112,30 @@ def fetch_machines() -> List[Dict[str, Any]]:
         if not machines_from_1c:
             logger.info("No machines returned from 1C.")
 
+        # Логируем поля первой машины для диагностики
+        if machines_from_1c:
+            sample = machines_from_1c[0]
+            logger.info(f"Sample machine keys: {list(sample.keys())}")
+            logger.info(f"Sample бсо_ВидМашины value: '{sample.get('бсо_ВидМашины', 'NOT_FOUND')}'")
+
         for machine in machines_from_1c:
             inventory_number = machine.get("Code") or machine.get("InventoryNumber")
             name_model = machine.get("Description") or machine.get("Model")
             license_plate = machine.get("LicensePlate") or machine.get("ГосударственныйНомер")
             ref_key = machine.get("Ref_Key")
 
+            # Классификация по виду машины
+            raw_vehicle_type = machine.get("бсо_ВидМашины", "")
+            vehicle_type = _classify_vehicle_type(raw_vehicle_type)
+            logger.debug(f"Machine {name_model}: бсо_ВидМашины='{raw_vehicle_type}' -> {vehicle_type}")
+
             if inventory_number:
                 upsert_machine(
                     inventory_number=str(inventory_number),
                     model=str(name_model or "Unknown"),
                     license_plate=str(license_plate or ""),
-                    ref_key=str(ref_key) if ref_key else None
+                    ref_key=str(ref_key) if ref_key else None,
+                    vehicle_type=vehicle_type
                 )
 
         logger.info(f"Successfully fetched and updated {len(machines_from_1c)} machines from 1C.")
@@ -481,6 +541,139 @@ def fetch_departments() -> List[Dict[str, Any]]:
 
 
 # ============================================================
+# REPAIR TYPES (бсо_ВидыТехническогоОбслуживания)
+# ============================================================
+
+def sync_repair_types() -> List[Dict[str, Any]]:
+    """Синхронизирует виды ТО из 1С"""
+    return fetch_repair_types()
+
+
+def fetch_repair_types() -> List[Dict[str, Any]]:
+    """
+    Получает справочник видов ТО из 1С OData.
+    URL задаётся через ODATA_REPAIR_TYPES_URL в .env.
+    """
+    if not ODATA_REPAIR_TYPES_URL:
+        logger.warning("ODATA_REPAIR_TYPES_URL not set. Returning local repair types.")
+        return get_all_repair_types()
+
+    try:
+        logger.info(f"Fetching repair types from: {ODATA_REPAIR_TYPES_URL}")
+        data = _odata_get(ODATA_REPAIR_TYPES_URL)
+        items = data.get("value", [])
+
+        logger.info(f"Received {len(items)} repair types from 1C")
+
+        if items:
+            logger.info(f"Sample repair type keys: {list(items[0].keys())}")
+
+        for item in items:
+            code = item.get("Code", "")
+            name = item.get("Description", "")
+            ref_key = item.get("Ref_Key", "")
+
+            if code and name:
+                upsert_repair_type(
+                    code=str(code),
+                    name=str(name),
+                    ref_key=str(ref_key) if ref_key else None
+                )
+
+        logger.info(f"Successfully synced {len(items)} repair types from 1C")
+        return get_all_repair_types()
+
+    except requests.HTTPError as e:
+        if e.response is not None and e.response.status_code == 404:
+            logger.error(f"Repair types catalog not found (404). Check ODATA_REPAIR_TYPES_URL.")
+        else:
+            logger.error(f"HTTP error fetching repair types: {e}")
+        return get_all_repair_types()
+    except Exception as e:
+        logger.error(f"Error fetching repair types: {e}")
+        return get_all_repair_types()
+
+
+# ============================================================
+# NOMENCLATURE (Номенклатура — папка "Автозапчасти")
+# ============================================================
+
+def sync_nomenclature() -> List[Dict[str, Any]]:
+    return fetch_nomenclature()
+
+
+def fetch_nomenclature() -> List[Dict[str, Any]]:
+    """
+    Получает номенклатуру из 1С OData — элементы из папки "Автозапчасти" и всех её подпапок (рекурсивно).
+    """
+    if not ODATA_NOMENCLATURE_URL:
+        logger.warning("ODATA_NOMENCLATURE_URL not set. Returning local nomenclature.")
+        return get_all_nomenclature()
+
+    try:
+        folder_url = ODATA_NOMENCLATURE_URL.split("?")[0]
+
+        # Шаг 1: Находим корневую папку "Автозапчасти"
+        logger.info(f"Fetching nomenclature parent folder (Code={NOMENCLATURE_PARENT_CODE})")
+        filter_param = f"IsFolder eq true and Code eq '{NOMENCLATURE_PARENT_CODE}'"
+        data = _odata_get(folder_url, params={"$format": "json", "$filter": filter_param})
+        folders = data.get("value", [])
+
+        if not folders:
+            logger.error(f"Folder with Code={NOMENCLATURE_PARENT_CODE} not found in Catalog_Номенклатура")
+            return get_all_nomenclature()
+
+        root_ref_key = folders[0].get("Ref_Key", "")
+        root_name = folders[0].get("Description", "")
+        logger.info(f"Found nomenclature root folder: '{root_name}' Ref_Key={root_ref_key}")
+
+        # Шаг 2: Рекурсивно собираем элементы из папки и всех подпапок
+        total_items = 0
+        folders_to_scan = [root_ref_key]
+
+        while folders_to_scan:
+            current_parent = folders_to_scan.pop(0)
+
+            # Загружаем ВСЁ содержимое текущей папки (и папки, и элементы)
+            children_filter = f"Parent_Key eq guid'{current_parent}'"
+            children_data = _odata_get(folder_url, params={"$format": "json", "$filter": children_filter})
+            children = children_data.get("value", [])
+
+            for child in children:
+                is_folder = child.get("IsFolder", False)
+                code = child.get("Code", "")
+                name = child.get("Description", "")
+                ref_key = child.get("Ref_Key", "")
+
+                if is_folder:
+                    # Добавляем подпапку в очередь на сканирование
+                    folders_to_scan.append(ref_key)
+                    logger.info(f"  Found subfolder: '{name}' — will scan its contents")
+                elif code and name:
+                    # Элемент — сохраняем
+                    upsert_nomenclature(
+                        code=str(code),
+                        name=str(name),
+                        ref_key=str(ref_key) if ref_key else None,
+                        parent_ref_key=current_parent,
+                    )
+                    total_items += 1
+
+        logger.info(f"Successfully synced {total_items} nomenclature items (recursive)")
+        return get_all_nomenclature()
+
+    except requests.HTTPError as e:
+        if e.response is not None and e.response.status_code == 404:
+            logger.error(f"Catalog_Номенклатура not found (404): {e}")
+        else:
+            logger.error(f"HTTP error fetching nomenclature: {e}")
+        return get_all_nomenclature()
+    except Exception as e:
+        logger.error(f"Error fetching nomenclature: {e}")
+        return get_all_nomenclature()
+
+
+# ============================================================
 # POST CHECKLIST TO 1C
 # ============================================================
 
@@ -715,4 +908,199 @@ def post_checklist_to_1c(data: dict, inspection_id: int) -> Optional[dict]:
         return None
     except Exception as e:
         logger.error(f"Unexpected error posting checklist to 1C: {e}", exc_info=True)
+        return None
+
+
+# ============================================================
+# POST TO REPORT TO 1C (Проведение ТО)
+# ============================================================
+
+def post_to_report_to_1c(data: dict, report_id: int) -> Optional[dict]:
+    """
+    Отправляет отчет о ТО в 1С через OData POST.
+    Документ: бсо_ПроведениеТОТехническогоСредства
+    """
+    if not ODATA_TO_DOC_URL:
+        logger.warning("ODATA_TO_DOC_URL not set — skipping TO report 1C push")
+        return None
+
+    def to_num(val, default=0):
+        try:
+            return int(val)
+        except (TypeError, ValueError):
+            return default
+
+    doc_payload = {
+        "Date": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+        "Posted": False,
+        "ИД": str(report_id),
+        "ДатаПроведения": _to_1c_datetime(data.get("to_date", "")),
+        "ПричинаПоломки": data.get("breakdown_reason", "") or data.get("inspection_result", ""),
+        "ДатаНачалаРемонта": _to_1c_datetime(data.get("repair_start_date", "")),
+        "ДатаЗавершенияРемонта": _to_1c_datetime(data.get("repair_end_date", "")),
+        "ВремяПростояДней": to_num(data.get("downtime_days")),
+        "ВремяПростояЧасов": to_num(data.get("downtime_hours")),
+        "Комментарии": data.get("comments", ""),
+        "Пробег": to_num(data.get("to_mileage")),
+        "Моточасы": to_num(data.get("to_motorhours")),
+        "Язык": _LANG_LABELS.get(data.get("lang", "ru"), data.get("lang", "ru")),
+    }
+
+    # Ссылочные поля (Edm.Guid)
+    dept_ref = data.get("department_ref_key")
+    if dept_ref:
+        doc_payload["Подразделение_Key"] = dept_ref
+
+    machine_ref = data.get("machine_ref_key")
+    if machine_ref:
+        doc_payload["Машина_Key"] = machine_ref
+
+    responsible_ref = data.get("responsible_person_ref_key")
+    if responsible_ref:
+        doc_payload["ОтветственноеЛицо_Key"] = responsible_ref
+
+    repair_type_ref = data.get("repair_type_ref_key")
+    if repair_type_ref:
+        doc_payload["ВидРемонта_Key"] = repair_type_ref
+
+    # --- Табличные части ---
+    # ИспользованныеМатериалы
+    materials = data.get("materials_table", [])
+    if materials:
+        materials_rows = []
+        parts_summary_parts = []
+        for i, row in enumerate(materials, 1):
+            nom_name = row.get("nomenclature_name", row.get("nomenclature", ""))
+            nom_ref = row.get("nomenclature_uid")
+            mat_row = {
+                "LineNumber": str(i),
+                "Количество": to_num(row.get("quantity")),
+                "ЕдиницаИзмерения": row.get("unit_name", row.get("unit", "")),
+                "Стоимость": to_num(row.get("cost")),
+            }
+            if nom_ref:
+                mat_row["Номенклатура_Key"] = nom_ref
+            else:
+                mat_row["Номенклатура"] = nom_name
+            materials_rows.append(mat_row)
+            if nom_name:
+                qty = row.get("quantity", "")
+                parts_summary_parts.append(f"{nom_name} x{qty}" if qty else nom_name)
+        doc_payload["ИспользованныеМатериалы"] = materials_rows
+        # Текстовая сводка для строкового поля
+        doc_payload["ИспользованныеЗапчасти"] = "; ".join(parts_summary_parts)
+
+    # ВыполненныеРаботы
+    works = data.get("works_table", [])
+    if works:
+        works_rows = []
+        for i, row in enumerate(works, 1):
+            works_rows.append({
+                "LineNumber": str(i),
+                "ВидРабот": row.get("work_type", ""),
+                "Исполнитель": row.get("performer", ""),
+                "ВремяВыполнения": row.get("duration", ""),
+                "Примечание": row.get("note", ""),
+            })
+        doc_payload["ВыполненныеРаботы"] = works_rows
+
+    try:
+        logger.info(f"Posting TO report to 1C: report_id={report_id}")
+
+        post_url = ODATA_TO_DOC_URL.split("?")[0]
+
+        response = requests.post(
+            post_url,
+            auth=_get_auth(),
+            json=doc_payload,
+            timeout=30,
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            }
+        )
+
+        if response.status_code in (200, 201):
+            result = response.json()
+            ref_key = result.get("Ref_Key", "unknown")
+            logger.info(f"TO report posted to 1C: Ref_Key={ref_key}")
+            return result
+        else:
+            body = response.text[:500]
+            logger.error(f"1C returned HTTP {response.status_code} for TO report: {body}")
+            return None
+
+    except requests.RequestException as e:
+        logger.error(f"Error posting TO report to 1C: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Unexpected error posting TO report to 1C: {e}", exc_info=True)
+        return None
+
+
+# ============================================================
+# POST MILEAGE TO 1C (История пробега)
+# ============================================================
+
+def post_mileage_to_1c(machine_ref_key: str, mileage: int = 0,
+                       motorhours: int = 0, source: str = "checklist",
+                       vehicle_type: str = "lv") -> Optional[dict]:
+    """
+    Записывает данные пробега в регистр сведений бсо_ИсторияПробега через OData POST.
+    Вызывается после сохранения чек-листа или отчёта о ТО.
+    """
+    if not ODATA_MILEAGE_REGISTER_URL:
+        logger.warning("ODATA_MILEAGE_REGISTER_URL not set — skipping mileage 1C push")
+        return None
+
+    if not machine_ref_key:
+        logger.warning("No machine_ref_key — skipping mileage 1C push")
+        return None
+
+    if mileage <= 0 and motorhours <= 0:
+        logger.debug("Mileage and motorhours are 0 — skipping mileage 1C push")
+        return None
+
+    record_payload = {
+        "Period": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+        "Машина_Key": machine_ref_key,
+        "Пробег": mileage,
+        "Моточасы": motorhours,
+        "Источник": source,
+        "ВидМашины": vehicle_type,
+    }
+
+    try:
+        logger.info(
+            f"Posting mileage to 1C: machine={machine_ref_key}, "
+            f"mileage={mileage}, motorhours={motorhours}, source={source}"
+        )
+
+        post_url = ODATA_MILEAGE_REGISTER_URL.split("?")[0]
+
+        response = requests.post(
+            post_url,
+            auth=_get_auth(),
+            json=record_payload,
+            timeout=30,
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            }
+        )
+
+        if response.status_code in (200, 201):
+            result = response.json()
+            logger.info(f"Mileage record posted to 1C successfully")
+            return result
+        else:
+            body = response.text[:500]
+            logger.error(f"1C returned HTTP {response.status_code} for mileage: {body}")
+            return None
+
+    except requests.RequestException as e:
+        logger.error(f"Error posting mileage to 1C: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Unexpected error posting mileage to 1C: {e}", exc_info=True)
         return None

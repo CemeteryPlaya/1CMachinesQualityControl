@@ -37,10 +37,16 @@ def init_db():
                 last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
-        # Миграция: добавляем ref_key если нет
+        # Миграции: добавляем колонки если нет
         cur.execute('''
             DO $$ BEGIN
                 ALTER TABLE machines ADD COLUMN ref_key TEXT;
+            EXCEPTION WHEN duplicate_column THEN NULL;
+            END $$
+        ''')
+        cur.execute('''
+            DO $$ BEGIN
+                ALTER TABLE machines ADD COLUMN vehicle_type TEXT DEFAULT 'lv';
             EXCEPTION WHEN duplicate_column THEN NULL;
             END $$
         ''')
@@ -70,6 +76,50 @@ def init_db():
             )
         ''')
         cur.execute('''
+            CREATE TABLE IF NOT EXISTS repair_types (
+                id SERIAL PRIMARY KEY,
+                code TEXT UNIQUE NOT NULL,
+                name TEXT NOT NULL,
+                ref_key TEXT,
+                last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS nomenclature (
+                id SERIAL PRIMARY KEY,
+                code TEXT UNIQUE NOT NULL,
+                name TEXT NOT NULL,
+                ref_key TEXT,
+                parent_ref_key TEXT,
+                last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS maintenance_reports (
+                id SERIAL PRIMARY KEY,
+                lang TEXT NOT NULL DEFAULT 'ru',
+                telegram_user_id TEXT,
+                to_date DATE,
+                department TEXT,
+                department_ref_key TEXT,
+                machine_inventory TEXT,
+                machine_model TEXT,
+                machine_plate TEXT,
+                machine_ref_key TEXT,
+                responsible_person TEXT,
+                responsible_person_ref_key TEXT,
+                repair_type TEXT,
+                repair_type_ref_key TEXT,
+                breakdown_reason TEXT,
+                repair_start_date DATE,
+                repair_end_date DATE,
+                downtime_days INTEGER DEFAULT 0,
+                downtime_hours INTEGER DEFAULT 0,
+                used_parts TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        cur.execute('''
             CREATE TABLE IF NOT EXISTS inspections (
                 id SERIAL PRIMARY KEY,
                 form_type TEXT NOT NULL DEFAULT 'lv',
@@ -90,6 +140,20 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS mileage_history (
+                id SERIAL PRIMARY KEY,
+                machine_id INTEGER NOT NULL REFERENCES machines(id),
+                mileage INTEGER DEFAULT 0,
+                motorhours INTEGER DEFAULT 0,
+                source TEXT DEFAULT 'checklist',
+                recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        cur.execute('''
+            CREATE INDEX IF NOT EXISTS idx_mileage_history_machine
+            ON mileage_history(machine_id, recorded_at DESC)
+        ''')
         conn.commit()
         logger.info("Database initialized successfully.")
     except Exception as e:
@@ -103,19 +167,21 @@ def init_db():
 # MACHINES
 # ============================================================
 
-def upsert_machine(inventory_number: str, model: str, license_plate: str, ref_key: str = None):
+def upsert_machine(inventory_number: str, model: str, license_plate: str,
+                    ref_key: str = None, vehicle_type: str = 'lv'):
     conn = get_db_connection()
     try:
         cur = conn.cursor()
         cur.execute('''
-            INSERT INTO machines (inventory_number, model, license_plate, ref_key, last_updated)
-            VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
+            INSERT INTO machines (inventory_number, model, license_plate, ref_key, vehicle_type, last_updated)
+            VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
             ON CONFLICT (inventory_number) DO UPDATE SET
                 model = EXCLUDED.model,
                 license_plate = EXCLUDED.license_plate,
                 ref_key = COALESCE(EXCLUDED.ref_key, machines.ref_key),
+                vehicle_type = EXCLUDED.vehicle_type,
                 last_updated = CURRENT_TIMESTAMP
-        ''', (inventory_number, model, license_plate, ref_key))
+        ''', (inventory_number, model, license_plate, ref_key, vehicle_type))
         conn.commit()
     except Exception as e:
         conn.rollback()
@@ -133,6 +199,24 @@ def get_all_machines() -> List[Dict]:
         machines = [dict(row) for row in cur.fetchall()]
     except Exception as e:
         logger.error(f"Error fetching machines from DB: {e}")
+    finally:
+        conn.close()
+    return machines
+
+
+def get_machines_by_category(category: str) -> List[Dict]:
+    """Возвращает машины по категории: lv, sv или all"""
+    conn = get_db_connection()
+    machines = []
+    try:
+        cur = conn.cursor()
+        if category == 'all':
+            cur.execute('SELECT * FROM machines')
+        else:
+            cur.execute('SELECT * FROM machines WHERE vehicle_type = %s', (category,))
+        machines = [dict(row) for row in cur.fetchall()]
+    except Exception as e:
+        logger.error(f"Error fetching machines by category {category}: {e}")
     finally:
         conn.close()
     return machines
@@ -434,6 +518,181 @@ def save_inspection_from_sheets(data: Dict[str, Any]) -> Optional[int]:
         conn.close()
 
 
+# ============================================================
+# REPAIR TYPES (Виды ТО)
+# ============================================================
+
+def upsert_repair_type(code: str, name: str, ref_key: str = None):
+    conn = get_db_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute('''
+            INSERT INTO repair_types (code, name, ref_key, last_updated)
+            VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
+            ON CONFLICT (code) DO UPDATE SET
+                name = EXCLUDED.name,
+                ref_key = COALESCE(EXCLUDED.ref_key, repair_types.ref_key),
+                last_updated = CURRENT_TIMESTAMP
+        ''', (code, name, ref_key))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Error upserting repair type {code}: {e}")
+    finally:
+        conn.close()
+
+
+def get_all_repair_types() -> List[Dict]:
+    conn = get_db_connection()
+    types = []
+    try:
+        cur = conn.cursor()
+        cur.execute('SELECT * FROM repair_types ORDER BY name')
+        types = [dict(row) for row in cur.fetchall()]
+    except Exception as e:
+        logger.error(f"Error fetching repair types: {e}")
+    finally:
+        conn.close()
+    return types
+
+
+def get_repair_type_by_id(type_id: int) -> Optional[Dict]:
+    conn = get_db_connection()
+    repair_type = None
+    try:
+        cur = conn.cursor()
+        cur.execute('SELECT * FROM repair_types WHERE id = %s', (type_id,))
+        row = cur.fetchone()
+        if row:
+            repair_type = dict(row)
+    except Exception as e:
+        logger.error(f"Error fetching repair type {type_id}: {e}")
+    finally:
+        conn.close()
+    return repair_type
+
+
+# ============================================================
+# NOMENCLATURE (Номенклатура)
+# ============================================================
+
+def upsert_nomenclature(code: str, name: str, ref_key: str = None, parent_ref_key: str = None):
+    conn = get_db_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute('''
+            INSERT INTO nomenclature (code, name, ref_key, parent_ref_key, last_updated)
+            VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
+            ON CONFLICT (code) DO UPDATE SET
+                name = EXCLUDED.name,
+                ref_key = COALESCE(EXCLUDED.ref_key, nomenclature.ref_key),
+                parent_ref_key = COALESCE(EXCLUDED.parent_ref_key, nomenclature.parent_ref_key),
+                last_updated = CURRENT_TIMESTAMP
+        ''', (code, name, ref_key, parent_ref_key))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Error upserting nomenclature {code}: {e}")
+    finally:
+        conn.close()
+
+
+def get_all_nomenclature() -> List[Dict]:
+    conn = get_db_connection()
+    items = []
+    try:
+        cur = conn.cursor()
+        cur.execute('SELECT * FROM nomenclature ORDER BY name')
+        items = [dict(row) for row in cur.fetchall()]
+    except Exception as e:
+        logger.error(f"Error fetching nomenclature: {e}")
+    finally:
+        conn.close()
+    return items
+
+
+# ============================================================
+# MAINTENANCE REPORTS (Отчеты о ТО)
+# ============================================================
+
+def save_maintenance_report(data: Dict[str, Any]) -> Optional[int]:
+    """Сохраняет отчет о ТО в PostgreSQL. Возвращает id записи."""
+    conn = get_db_connection()
+    try:
+        cur = conn.cursor()
+
+        def parse_date(raw):
+            if not raw:
+                return None
+            for fmt in ('%d.%m.%Y', '%Y-%m-%d'):
+                try:
+                    return datetime.strptime(raw, fmt).date()
+                except ValueError:
+                    continue
+            return None
+
+        def to_int(val, default=0):
+            try:
+                return int(val)
+            except (TypeError, ValueError):
+                return default
+
+        cur.execute('''
+            INSERT INTO maintenance_reports (
+                lang, telegram_user_id, to_date,
+                department, department_ref_key,
+                machine_inventory, machine_model, machine_plate, machine_ref_key,
+                responsible_person, responsible_person_ref_key,
+                repair_type, repair_type_ref_key,
+                breakdown_reason,
+                repair_start_date, repair_end_date,
+                downtime_days, downtime_hours,
+                used_parts
+            ) VALUES (
+                %s, %s, %s,
+                %s, %s,
+                %s, %s, %s, %s,
+                %s, %s,
+                %s, %s,
+                %s,
+                %s, %s,
+                %s, %s,
+                %s
+            ) RETURNING id
+        ''', (
+            data.get('lang', 'ru'),
+            data.get('telegram_user_id'),
+            parse_date(data.get('to_date')),
+            data.get('department_uid'),
+            data.get('department_ref_key'),
+            data.get('machine_inv'),
+            data.get('model'),
+            data.get('license_plate'),
+            data.get('machine_ref_key'),
+            data.get('responsible_person_name'),
+            data.get('responsible_person_ref_key'),
+            data.get('repair_type_name'),
+            data.get('repair_type_ref_key'),
+            data.get('breakdown_reason'),
+            parse_date(data.get('repair_start_date')),
+            parse_date(data.get('repair_end_date')),
+            to_int(data.get('downtime_days')),
+            to_int(data.get('downtime_hours')),
+            data.get('used_parts'),
+        ))
+        row = cur.fetchone()
+        conn.commit()
+        report_id = row['id'] if row else None
+        logger.info(f"Maintenance report saved with id={report_id}")
+        return report_id
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Error saving maintenance report: {e}")
+        return None
+    finally:
+        conn.close()
+
+
 def get_all_inspections() -> List[Dict]:
     conn = get_db_connection()
     inspections = []
@@ -446,3 +705,71 @@ def get_all_inspections() -> List[Dict]:
     finally:
         conn.close()
     return inspections
+
+
+# ============================================================
+# MILEAGE HISTORY (История пробега)
+# ============================================================
+
+def save_mileage_record(machine_id: int, mileage: int = 0, motorhours: int = 0,
+                        source: str = 'checklist') -> Optional[int]:
+    """Сохраняет запись пробега в историю."""
+    conn = get_db_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute('''
+            INSERT INTO mileage_history (machine_id, mileage, motorhours, source)
+            VALUES (%s, %s, %s, %s)
+            RETURNING id
+        ''', (machine_id, mileage, motorhours, source))
+        row = cur.fetchone()
+        conn.commit()
+        record_id = row['id'] if row else None
+        logger.info(f"Mileage record saved: machine_id={machine_id}, mileage={mileage}, motorhours={motorhours}")
+        return record_id
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Error saving mileage record: {e}")
+        return None
+    finally:
+        conn.close()
+
+
+def get_last_mileage(machine_id: int) -> Optional[Dict]:
+    """Возвращает последнюю запись пробега для машины."""
+    conn = get_db_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute('''
+            SELECT * FROM mileage_history
+            WHERE machine_id = %s
+            ORDER BY recorded_at DESC
+            LIMIT 1
+        ''', (machine_id,))
+        row = cur.fetchone()
+        return dict(row) if row else None
+    except Exception as e:
+        logger.error(f"Error fetching last mileage for machine {machine_id}: {e}")
+        return None
+    finally:
+        conn.close()
+
+
+def get_mileage_history(machine_id: int, limit: int = 50) -> List[Dict]:
+    """Возвращает историю пробега для машины (для графика)."""
+    conn = get_db_connection()
+    records = []
+    try:
+        cur = conn.cursor()
+        cur.execute('''
+            SELECT * FROM mileage_history
+            WHERE machine_id = %s
+            ORDER BY recorded_at ASC
+            LIMIT %s
+        ''', (machine_id, limit))
+        records = [dict(row) for row in cur.fetchall()]
+    except Exception as e:
+        logger.error(f"Error fetching mileage history for machine {machine_id}: {e}")
+    finally:
+        conn.close()
+    return records

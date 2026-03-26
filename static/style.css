@@ -93,6 +93,20 @@ body {
     border-bottom: 2px solid var(--primary-color);
 }
 
+textarea.textarea-input {
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 10px;
+    resize: vertical;
+    min-height: 80px;
+    font-family: inherit;
+}
+
+textarea.textarea-input:focus {
+    border-color: var(--primary-color);
+    border-bottom-width: 1px;
+}
+
 .radio-group {
     display: flex;
     flex-direction: column;
@@ -288,4 +302,185 @@ input.odometer-input {
 
 .other-text-input::placeholder {
     color: #5f6368;
+}
+
+/* Dynamic Table Styles */
+.table-card {
+    padding: 16px;
+}
+
+.table-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    margin-bottom: 10px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+}
+
+.table-cell {
+    flex: 1;
+    min-width: 0;
+}
+
+.table-cell label {
+    display: block;
+    font-size: 11px;
+    color: #5f6368;
+    margin-bottom: 4px;
+    font-weight: 500;
+}
+
+.table-cell input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 13px;
+    box-sizing: border-box;
+    outline: none;
+}
+
+.table-cell input:focus {
+    border-color: var(--primary-color);
+}
+
+.table-cell.cell-number {
+    flex: 0 0 80px;
+}
+
+.remove-row-btn {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    background: none;
+    border: 1px solid #dadce0;
+    border-radius: 50%;
+    color: var(--error-color);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 2px;
+}
+
+.remove-row-btn:hover {
+    background: #fce4ec;
+}
+
+.add-row-btn {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    background: none;
+    border: 2px dashed var(--border-color);
+    border-radius: 6px;
+    color: var(--primary-color);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    margin-top: 4px;
+}
+
+.add-row-btn:hover {
+    border-color: var(--primary-color);
+    background: #f0ebf8;
+}
+
+@media (max-width: 600px) {
+    .table-row {
+        flex-wrap: wrap;
+    }
+    .table-cell {
+        flex: 1 1 45%;
+    }
+    .table-cell.cell-number {
+        flex: 1 1 45%;
+    }
+}
+
+/* ============================================================
+   Selection Modal
+   ============================================================ */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 9999;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+}
+.modal-content {
+    background: var(--card-bg, #fff);
+    border-radius: 16px 16px 0 0;
+    width: 100%;
+    max-width: 500px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    animation: modalSlideUp 0.25s ease-out;
+}
+@keyframes modalSlideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+}
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px 8px;
+}
+.modal-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+.modal-close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #5f6368;
+    padding: 0 4px;
+}
+.modal-search {
+    margin: 0 16px 8px;
+    width: calc(100% - 32px) !important;
+}
+.modal-list {
+    overflow-y: auto;
+    flex: 1;
+    padding: 0 8px 16px;
+}
+.modal-list-item {
+    padding: 12px 12px;
+    cursor: pointer;
+    border-radius: 8px;
+    font-size: 14px;
+    color: var(--text-color, #202124);
+}
+.modal-list-item:active,
+.modal-list-item:hover {
+    background: var(--bg-color, #f0ebf8);
+}
+
+/* Repeater select trigger button */
+.repeater-select-trigger {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #dadce0;
+    border-radius: 8px;
+    background: #fff;
+    font-size: 14px;
+    text-align: left;
+    cursor: pointer;
+    color: #5f6368;
+    min-height: 42px;
+}
+.repeater-select-trigger.has-value {
+    color: var(--text-color, #202124);
 }
