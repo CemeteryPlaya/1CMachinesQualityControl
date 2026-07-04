@@ -1,0 +1,59 @@
+{% extends "admin/base.html" %}
+{% block title %}Администраторы — Админ-панель{% endblock %}
+{% block content %}
+<h1>Администраторы</h1>
+
+<div class="detail-card">
+    <h2>Добавить администратора</h2>
+    <form method="post" action="{{ url_for('admin.admins_create') }}" class="admin-form">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <div class="form-row">
+            <label>Логин *<input type="text" name="username" required></label>
+            <label>Пароль *<input type="password" name="password" required></label>
+            <label>ФИО<input type="text" name="full_name"></label>
+            <label>Telegram ID<input type="text" name="telegram_user_id"
+                   placeholder="для push-уведомлений"></label>
+        </div>
+        <div class="form-row checkboxes">
+            {% for flag, label in admin_flags %}
+            <label class="checkbox-label">
+                <input type="checkbox" name="{{ flag }}" {{ 'checked' if flag == 'can_view_reports' }}> {{ label }}
+            </label>
+            {% endfor %}
+        </div>
+        <button type="submit" class="btn btn-primary">Создать</button>
+    </form>
+</div>
+
+<h2>Список администраторов</h2>
+{% for a in admins %}
+<div class="detail-card admin-row {{ 'inactive' if not a.is_active }}">
+    <form method="post" action="{{ url_for('admin.admins_update', admin_id=a.id) }}">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <div class="admin-row-header">
+            <strong>{{ a.username }}</strong>
+            {% if a.id == admin.id %}<span class="badge">это вы</span>{% endif %}
+            {% if not a.is_active %}<span class="badge badge-off">отключен</span>{% endif %}
+        </div>
+        <div class="form-row">
+            <label>ФИО<input type="text" name="full_name" value="{{ a.full_name or '' }}"></label>
+            <label>Telegram ID<input type="text" name="telegram_user_id" value="{{ a.telegram_user_id or '' }}"></label>
+            <label>Новый пароль<input type="password" name="new_password" placeholder="не менять"></label>
+        </div>
+        <div class="form-row checkboxes">
+            {% for flag, label in admin_flags %}
+            <label class="checkbox-label">
+                <input type="checkbox" name="{{ flag }}" {{ 'checked' if a[flag] }}
+                       {{ 'disabled' if flag == 'is_superadmin' and a.id == admin.id }}> {{ label }}
+            </label>
+            {% endfor %}
+            <label class="checkbox-label">
+                <input type="checkbox" name="is_active" {{ 'checked' if a.is_active }}
+                       {{ 'disabled' if a.id == admin.id }}> Активен
+            </label>
+        </div>
+        <button type="submit" class="btn btn-primary btn-small">Сохранить</button>
+    </form>
+</div>
+{% endfor %}
+{% endblock %}

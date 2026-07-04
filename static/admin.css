@@ -1,0 +1,573 @@
+/* Плавный переход между страницами при навигации (в т.ч. свайпом) —
+   прогрессивное улучшение: браузеры без View Transitions игнорируют */
+@view-transition {
+    navigation: auto;
+}
+
+:root {
+    --primary-color: #673ab7;
+    --bg-color: #f0ebf8;
+    --card-bg: #ffffff;
+    --text-color: #202124;
+    --error-color: #d93025;
+    --success-color: #188038;
+    --border-color: #dadce0;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    background-color: var(--bg-color);
+    font-family: 'Roboto', 'Segoe UI', sans-serif;
+    margin: 0;
+    color: var(--text-color);
+}
+
+/* ===== Навигация ===== */
+.admin-nav {
+    background: linear-gradient(135deg, #7e57c2 0%, var(--primary-color) 45%, #4527a0 100%);
+    color: #fff;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 12px rgba(78, 35, 160, 0.35);
+}
+
+.admin-nav-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 12px 20px;
+    padding: 12px 16px 10px;
+    flex-wrap: wrap;
+}
+
+.admin-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 17px;
+    color: #fff;
+    text-decoration: none;
+    letter-spacing: 0.2px;
+}
+
+.brand-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.16);
+    font-size: 19px;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18);
+}
+
+/* Ссылки-разделы: крупные пилюли (тач-цель ≥ 44px) */
+.admin-nav-links {
+    display: flex;
+    gap: 8px;
+    flex-basis: 100%;
+    order: 3;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+}
+.admin-nav-links::-webkit-scrollbar { display: none; }
+
+.nav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 10px 18px;
+    border-radius: 22px;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.12);
+    text-decoration: none;
+    font-size: 15px;
+    font-weight: 500;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background 0.15s;
+}
+
+.nav-link:hover { background: rgba(255, 255, 255, 0.22); }
+
+.nav-link.active {
+    background: #fff;
+    color: var(--primary-color);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+
+.nav-link:focus-visible, .logout-btn:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+}
+
+/* Пользователь и выход */
+.admin-nav-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+}
+
+.user-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    max-width: 220px;
+}
+
+.user-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.22);
+    font-weight: 700;
+    font-size: 15px;
+    flex-shrink: 0;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.25);
+}
+
+.user-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.logout-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 8px 18px;
+    border-radius: 22px;
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    color: #fff;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background 0.15s;
+}
+
+.logout-btn:hover { background: rgba(255, 255, 255, 0.15); }
+
+.admin-main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
+
+h1 { font-size: 24px; font-weight: 500; }
+h2 { font-size: 18px; font-weight: 500; margin-top: 28px; }
+
+.muted { color: #5f6368; }
+
+/* ===== Карточки статистики ===== */
+.stat-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    max-width: 560px;
+}
+
+.stat-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 18px 12px;
+    text-align: center;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+}
+
+.stat-value { font-size: 34px; font-weight: 700; color: var(--primary-color); }
+.stat-label { font-size: 13px; color: #5f6368; margin-top: 4px; }
+
+.sender-columns { display: flex; gap: 16px; flex-wrap: wrap; }
+.sender-col { flex: 1; min-width: 260px; }
+.sender-col h3 { font-size: 14px; font-weight: 500; }
+
+/* ===== Таблицы ===== */
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+    font-size: 13px;
+}
+
+.admin-table th, .admin-table td {
+    padding: 9px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.admin-table th { background: #f8f9fa; font-weight: 600; color: #5f6368; }
+.admin-table tr:last-child td { border-bottom: none; }
+.admin-table tr:hover td { background: #faf8ff; }
+
+.cell-address { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ===== Вкладки и фильтры ===== */
+.tabs { display: flex; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
+
+.tab {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 10px 18px;
+    border: 1px solid var(--border-color);
+    border-radius: 22px;
+    text-decoration: none;
+    color: var(--text-color);
+    background: var(--card-bg);
+    font-size: 15px;
+    white-space: nowrap;
+}
+.tab.active { background: var(--primary-color); color: #fff; border-color: var(--primary-color); }
+
+.filter-form {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+.filter-form label {
+    font-size: 13px;
+    color: #5f6368;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;        /* разрешаем сжатие — иначе селект диктует ширину */
+    max-width: 340px;
+}
+.filter-form input[type="date"] {
+    padding: 7px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+}
+
+/* ===== Кнопки (тач-цели ≥ 44px) ===== */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 46px;
+    padding: 10px 20px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--card-bg);
+    color: var(--text-color);
+    text-decoration: none;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.btn-primary { background: var(--primary-color); color: #fff; border-color: var(--primary-color); }
+.btn-primary:hover { background: #5e35a8; }
+.btn-small { min-height: 42px; padding: 8px 16px; font-size: 14px; }
+.btn-block { width: 100%; }
+.btn:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
+
+/* ===== Детальная страница ===== */
+.back-link { color: var(--primary-color); text-decoration: none; font-size: 14px; }
+
+.form-type-badge {
+    display: inline-block;
+    background: #ede7f6;
+    color: var(--primary-color);
+    border-radius: 16px;
+    padding: 6px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    margin: 0 0 8px;
+}
+
+.detail-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin: 16px 0;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+}
+
+.detail-card h2 { margin-top: 0; font-size: 16px; }
+
+.detail-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.detail-table th {
+    text-align: left;
+    color: #5f6368;
+    font-weight: 500;
+    padding: 7px 16px 7px 0;
+    width: 260px;
+    vertical-align: top;
+}
+.detail-table td { padding: 7px 0; }
+
+/* Подсветка значений radio-полей: хорошо — зелёным, плохо — красным */
+.value-pill {
+    display: inline-block;
+    padding: 4px 14px;
+    border-radius: 14px;
+    font-weight: 600;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.value-good { background: #e6f4ea; color: var(--success-color); }
+.value-bad { background: #fce8e6; color: var(--error-color); }
+.value-warn { background: #fef7e0; color: #b06000; }
+
+/* Выпадающие фильтры (История, Аналитика).
+   Ширину диктует контейнер, а не самая длинная опция:
+   длинное выбранное значение обрезается многоточием. */
+.filter-select {
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 14px;
+    background: var(--card-bg);
+    min-height: 42px;
+    width: 100%;
+    max-width: 340px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cell-missed, .cell-reasons { max-width: 280px; font-size: 12px; }
+.reason-line { margin: 2px 0; }
+
+.check-block { border-top: 1px solid var(--border-color); padding: 12px 0; }
+.check-block:first-of-type { border-top: none; }
+.check-block h3 { margin: 0 0 6px; font-size: 14px; }
+.check-block p { margin: 4px 0; font-size: 14px; }
+
+.photo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 10px;
+    margin-top: 8px;
+}
+.photo-grid img {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    display: block;
+}
+
+/* ===== Формы админов ===== */
+.admin-form .form-row, .admin-row .form-row {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.admin-form label, .admin-row label {
+    font-size: 13px;
+    color: #5f6368;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 180px;
+}
+
+.admin-form input[type="text"], .admin-form input[type="password"],
+.admin-row input[type="text"], .admin-row input[type="password"] {
+    padding: 7px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.checkboxes { align-items: center; }
+.checkbox-label {
+    flex-direction: row !important;
+    align-items: center;
+    gap: 6px !important;
+    min-width: unset !important;
+    font-size: 13px;
+    color: var(--text-color) !important;
+}
+
+.admin-row-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.admin-row.inactive { opacity: 0.65; }
+
+.badge {
+    font-size: 11px;
+    background: #e8f0fe;
+    color: #1a73e8;
+    border-radius: 10px;
+    padding: 2px 10px;
+}
+.badge-off { background: #fce8e6; color: var(--error-color); }
+
+/* ===== Flash-сообщения ===== */
+.flash {
+    padding: 10px 16px;
+    border-radius: 6px;
+    margin-bottom: 14px;
+    font-size: 14px;
+}
+.flash-error { background: #fce8e6; color: var(--error-color); }
+.flash-success { background: #e6f4ea; color: var(--success-color); }
+
+/* ===== Страница входа ===== */
+.login-body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;   /* fallback для старых браузеров */
+    min-height: 100dvh;  /* учитывает сворачивание адресной строки на мобильных */
+}
+
+.login-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-top: 8px solid var(--primary-color);
+    border-radius: 8px;
+    padding: 36px 32px;
+    width: 100%;
+    max-width: 380px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+
+.login-card h1 { margin: 0 0 4px; font-size: 22px; text-align: center; }
+.login-subtitle { text-align: center; color: #5f6368; margin: 0 0 24px; font-size: 14px; }
+
+.login-card label {
+    display: block;
+    font-size: 13px;
+    color: #5f6368;
+    margin-bottom: 14px;
+}
+
+.login-card input {
+    width: 100%;
+    padding: 10px 12px;
+    margin-top: 4px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.login-card input:focus { outline: none; border-color: var(--primary-color); }
+
+/* ============================================================
+   Мобильная адаптация
+   ============================================================ */
+@media (max-width: 700px) {
+    /* --- Навигация: бренд+аватар сверху, крупные пилюли строкой ниже --- */
+    .admin-nav-inner { gap: 8px 12px; padding: 10px 12px 8px; }
+    .admin-brand { font-size: 15px; gap: 8px; }
+    .brand-icon { width: 36px; height: 36px; font-size: 18px; border-radius: 9px; }
+    .user-name { display: none; } /* на узких экранах — только аватар с инициалом */
+    .nav-link { min-height: 48px; padding: 12px 18px; font-size: 15px; }
+    .logout-btn { min-height: 40px; padding: 8px 14px; font-size: 13px; }
+
+    .admin-main { padding: 14px 10px 48px; }
+    h1 { font-size: 20px; }
+    h2 { font-size: 16px; margin-top: 22px; }
+
+    /* --- Вкладки и фильтры --- */
+    .tabs { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; }
+    .tab { flex-shrink: 0; padding: 8px 14px; }
+
+    .filter-form { gap: 8px; }
+    .filter-form label { flex: 1 1 45%; }
+    /* Выпадающие фильтры — на всю строку, внутри экрана */
+    .filter-form label:has(.filter-select) { flex: 1 1 100%; max-width: 100%; }
+    .filter-select { max-width: 100%; min-height: 46px; }
+    .filter-form input[type="date"] { width: 100%; min-height: 46px; }
+    .filter-form .btn { flex: 1 1 45%; text-align: center; min-height: 48px; }
+
+    /* --- Кнопки: увеличенные тач-цели для телефонов --- */
+    .btn { min-height: 48px; font-size: 15px; }
+    .btn-small { min-height: 46px; font-size: 14px; }
+    .tab { min-height: 48px; }
+
+    /* --- Широкие таблицы отчетов → карточки --- */
+    .responsive-table { border: none; background: none; box-shadow: none; }
+    .responsive-table thead { display: none; }
+    .responsive-table, .responsive-table tbody,
+    .responsive-table tr, .responsive-table td { display: block; width: 100%; }
+    .responsive-table tr {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        margin-bottom: 10px;
+        padding: 10px 12px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+    }
+    .responsive-table td {
+        display: grid;
+        grid-template-columns: 110px 1fr;
+        gap: 10px;
+        padding: 4px 0;
+        border-bottom: none;
+        font-size: 13px;
+    }
+    .responsive-table td::before {
+        content: attr(data-label);
+        color: #5f6368;
+        font-weight: 500;
+    }
+    .responsive-table tr:hover td { background: none; }
+    .responsive-table td.cell-action { display: block; padding-top: 8px; }
+    .responsive-table td.cell-action::before { content: none; }
+    .responsive-table td.cell-action .btn { width: 100%; }
+
+    /* Адрес: в карточке разрешаем перенос строк */
+    .responsive-table .cell-address {
+        max-width: none;
+        white-space: normal;
+        overflow: visible;
+    }
+
+    /* --- Детальная страница: подписи над значениями --- */
+    .detail-card { padding: 14px; }
+    .detail-table tr { display: block; padding: 6px 0; border-bottom: 1px solid #f1f3f4; }
+    .detail-table tr:last-child { border-bottom: none; }
+    .detail-table th, .detail-table td { display: block; width: auto; padding: 0; }
+    .detail-table th { font-size: 12px; }
+    .detail-table td { font-size: 14px; }
+
+    /* --- Формы администраторов: поля на всю ширину --- */
+    .admin-form label, .admin-row label { min-width: 100%; }
+    .admin-form input[type="text"], .admin-form input[type="password"],
+    .admin-row input[type="text"], .admin-row input[type="password"] {
+        width: 100%;
+        min-height: 46px;
+    }
+    .checkbox-label { min-width: 100% !important; padding: 10px 0; }
+    .checkbox-label input[type="checkbox"] { width: 24px; height: 24px; }
+    .admin-form .btn, .admin-row .btn { width: 100%; }
+
+    /* --- Статистика: 3 карточки в ряд не влезают — пусть считает grid --- */
+    .stat-cards { max-width: none; }
+    .stat-value { font-size: 26px; }
+
+    .sender-col { min-width: 100%; }
+
+    /* --- Фото: мельче на телефоне --- */
+    .photo-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 8px; }
+
+    /* --- Логин --- */
+    .login-body { padding: 16px; align-items: flex-start; padding-top: 12dvh; }
+    .login-card { padding: 26px 20px; }
+    .login-card input { min-height: 48px; font-size: 16px; }
+}

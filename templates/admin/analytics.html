@@ -1,0 +1,122 @@
+{% extends "admin/base.html" %}
+{% block title %}Аналитика — Админ-панель{% endblock %}
+{% block content %}
+<h1>Аналитика</h1>
+
+<div class="tabs">
+    <a href="{{ url_for('admin.analytics', tab='daily') }}"
+       class="tab {{ 'active' if tab == 'daily' }}">📅 Пропуски ежедневных</a>
+    <a href="{{ url_for('admin.analytics', tab='weekly') }}"
+       class="tab {{ 'active' if tab == 'weekly' }}">🗓 Пропуски еженедельных</a>
+    <a href="{{ url_for('admin.analytics', tab='breakdowns') }}"
+       class="tab {{ 'active' if tab == 'breakdowns' }}">🔧 Поломки</a>
+</div>
+
+<form method="get" class="filter-form">
+    <input type="hidden" name="tab" value="{{ tab }}">
+    {% if tab == 'daily' %}
+    <label>Окно анализа
+        <select name="days" class="filter-select">
+            {% for d in (7, 30, 90) %}
+            <option value="{{ d }}" {{ 'selected' if window == d }}>{{ d }} дней</option>
+            {% endfor %}
+        </select>
+    </label>
+    {% elif tab == 'weekly' %}
+    <label>Окно анализа
+        <select name="weeks" class="filter-select">
+            {% for w in (4, 12, 26) %}
+            <option value="{{ w }}" {{ 'selected' if window == w }}>{{ w }} недель</option>
+            {% endfor %}
+        </select>
+    </label>
+    {% endif %}
+    {% include 'admin/_filters.html' %}
+    <button type="submit" class="btn btn-primary">Показать</button>
+    <a href="{{ url_for('admin.analytics', tab=tab) }}" class="btn">Сбросить</a>
+</form>
+
+{% if tab in ('daily', 'weekly') %}
+<p class="muted">
+    Техника, по которой был хотя бы один
+    {{ 'ежедневный отчет' if tab == 'daily' else 'еженедельный чек-лист' }}.
+    Окно анализа начинается с первого отчета по машине, но не глубже выбранного периода.
+    {% if tab == 'weekly' %}Неделя считается закрытой, если в ней был хотя бы один отчет.{% endif %}
+</p>
+
+{% if rows %}
+<table class="admin-table responsive-table">
+    <thead>
+        <tr>
+            <th>Машина</th><th>Покрытие</th>
+            <th>{{ 'Дней с отчетом' if tab == 'daily' else 'Недель с отчетом' }}</th>
+            <th>Пропущено</th><th>Последние пропуски</th>
+            <th>Последний отчет</th><th>Всего отчетов</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in rows %}
+        <tr>
+            <td data-label="Машина">{{ r.machine_model }} {{ r.machine_plate }} <span class="muted">ИН: {{ r.machine_inventory }}</span></td>
+            <td data-label="Покрытие"><span class="value-pill value-{{ r.status }}">{{ r.pct }}%</span></td>
+            <td data-label="{{ 'Дней с отчетом' if tab == 'daily' else 'Недель с отчетом' }}">{{ r.reported }} из {{ r.expected }}</td>
+            <td data-label="Пропущено">{{ r.missed_count }}</td>
+            <td data-label="Последние пропуски" class="cell-missed">
+                {% if r.missed_recent %}
+                    {% for d in r.missed_recent %}{{ d.strftime('%d.%m') }}{{ ', ' if not loop.last }}{% endfor %}
+                    {%- if r.missed_count > r.missed_recent|length %} … ещё {{ r.missed_count - r.missed_recent|length }}{% endif %}
+                    {% if tab == 'weekly' %}<span class="muted">(недели от пн)</span>{% endif %}
+                {% else %}—{% endif %}
+            </td>
+            <td data-label="Последний отчет">{{ r.last_report.strftime('%d.%m.%Y') }}</td>
+            <td data-label="Всего отчетов">{{ r.total }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="muted">Пока нет отчетов этого типа — аналитика появится после первых отправок.</p>
+{% endif %}
+
+{% else %}
+<p class="muted">
+    Машины, по которым был хотя бы один отчет о ТО. Внеплановые ремонты —
+    индикатор поломок; простой суммируется по всем ремонтам машины.
+</p>
+
+{% if rows %}
+<table class="admin-table responsive-table">
+    <thead>
+        <tr>
+            <th>Машина</th><th>Ремонтов</th><th>Внеплановых</th><th>Доля внеплановых</th>
+            <th>Суммарный простой</th><th>Последний ремонт</th><th>Последние причины поломок</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in rows %}
+        <tr>
+            <td data-label="Машина">{{ r.machine_model }} {{ r.machine_plate }} <span class="muted">ИН: {{ r.machine_inventory }}</span></td>
+            <td data-label="Ремонтов">{{ r.total }}</td>
+            <td data-label="Внеплановых">
+                <span class="value-pill value-{{ r.status }}">{{ r.unplanned }}</span>
+                {% if r.last_unplanned %}<span class="muted">посл.: {{ r.last_unplanned.strftime('%d.%m.%Y') }}</span>{% endif %}
+            </td>
+            <td data-label="Доля внеплановых">{{ r.unplanned_pct }}%</td>
+            <td data-label="Суммарный простой">{{ r.downtime_str }}</td>
+            <td data-label="Последний ремонт">{{ r.last_repair.strftime('%d.%m.%Y') if r.last_repair else '—' }}</td>
+            <td data-label="Последние причины" class="cell-reasons">
+                {% if r.reasons %}
+                    {% for reason in r.reasons %}
+                    <div class="reason-line">{% if reason.date %}<span class="muted">{{ reason.date.strftime('%d.%m.%y') }}:</span> {% endif %}{{ reason.text }}</div>
+                    {% endfor %}
+                {% else %}—{% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="muted">Пока нет отчетов о ТО — аналитика появится после первых отправок.</p>
+{% endif %}
+{% endif %}
+{% endblock %}

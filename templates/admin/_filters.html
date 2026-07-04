@@ -1,0 +1,36 @@
+{# Селекты фильтров: Машина / Отправитель / Оператор|Водитель|Ответственный /
+   Проект|Подразделение. Ожидает в контексте: options, selected, scheme. #}
+<label>Машина
+    <select name="machine" class="filter-select">
+        <option value="">Все</option>
+        {% for m in options.machines %}
+        <option value="{{ m.machine_inventory }}" {{ 'selected' if selected.machine == m.machine_inventory }}>
+            {{ m.machine_model }} {{ m.machine_plate or '' }} (ИН: {{ m.machine_inventory }})
+        </option>
+        {% endfor %}
+    </select>
+</label>
+<label>Отправитель
+    <select name="sender" class="filter-select">
+        <option value="">Все</option>
+        {% for s in options.senders %}
+        <option value="{{ s }}" {{ 'selected' if selected.sender == s }}>{{ s }}</option>
+        {% endfor %}
+    </select>
+</label>
+<label>{{ scheme.person_label }}
+    <select name="person" class="filter-select">
+        <option value="">Все</option>
+        {% for p in options.persons %}
+        <option value="{{ p }}" {{ 'selected' if selected.person == p }}>{{ p }}</option>
+        {% endfor %}
+    </select>
+</label>
+<label>{{ scheme.project_label }}
+    <select name="project" class="filter-select">
+        <option value="">Все</option>
+        {% for p in options.projects %}
+        <option value="{{ p }}" {{ 'selected' if selected.project == p }}>{{ p }}</option>
+        {% endfor %}
+    </select>
+</label>

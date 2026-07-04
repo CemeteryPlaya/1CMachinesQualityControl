@@ -1,5 +1,7 @@
-aiogram
-Flask
-python-dotenv
-requests
-psycopg[binary]
+aiogram~=3.24
+Flask~=3.1
+python-dotenv~=1.2
+requests~=2.32
+psycopg[binary,pool]~=3.3
+waitress~=3.0
+tzdata~=2025.2

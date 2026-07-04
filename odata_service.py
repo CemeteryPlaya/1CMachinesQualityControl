@@ -1,14 +1,36 @@
 import requests
 import os
+import time
+import threading
 import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from importlib import import_module
+from urllib.parse import quote
 from database import (upsert_machine, get_all_machines, upsert_employee, get_all_employees,
                        upsert_repair_type, get_all_repair_types,
-                       upsert_nomenclature, get_all_nomenclature)
+                       upsert_nomenclature, get_all_nomenclature, get_nomenclature_by_parent,
+                       delete_nomenclature_stale,
+                       upsert_measurement_unit, get_all_measurement_units,
+                       get_all_departments)
+from time_utils import now_local
 
 logger = logging.getLogger(__name__)
+
+# --- TTL-кэш синхронизаций: не дёргаем 1С чаще, чем раз в N секунд на сущность ---
+_SYNC_TTL_SECONDS = int(os.getenv("ODATA_SYNC_TTL_SECONDS", "300"))
+_sync_lock = threading.Lock()
+_last_sync_times: Dict[str, float] = {}
+
+
+def _should_sync(entity: str) -> bool:
+    """True, если TTL истёк (и сразу помечает сущность обновляемой)."""
+    now = time.time()
+    with _sync_lock:
+        if now - _last_sync_times.get(entity, 0.0) < _SYNC_TTL_SECONDS:
+            return False
+        _last_sync_times[entity] = now
+        return True
 
 ODATA_URL = os.getenv("ODATA_URL")
 ODATA_USER = os.getenv("ODATA_USER")
@@ -38,8 +60,11 @@ ODATA_MILEAGE_REGISTER_URL = os.getenv("ODATA_MILEAGE_REGISTER_URL")
 
 # URL справочника Номенклатура
 ODATA_NOMENCLATURE_URL = os.getenv("ODATA_NOMENCLATURE_URL")
-# Код папки "Автозапчасти" в справочнике Номенклатура
-NOMENCLATURE_PARENT_CODE = os.getenv("NOMENCLATURE_PARENT_CODE", "00000000394")
+# Ref_Key папки "Автозапчасти" в справочнике Номенклатура
+NOMENCLATURE_PARENT_REF_KEY = os.getenv("NOMENCLATURE_PARENT_REF_KEY", "cb3fc03e-bd9e-11ed-8fff-000c291c0350")
+
+# URL справочника единиц измерения
+ODATA_MEASUREMENT_UNITS_URL = os.getenv("ODATA_MEASUREMENT_UNITS_URL")
 
 
 def _get_auth():
@@ -65,6 +90,8 @@ def _odata_get(url: str, params: dict = None) -> dict:
 # ============================================================
 
 def sync_machines() -> List[Dict[str, Any]]:
+    if not _should_sync('machines'):
+        return get_all_machines()
     return fetch_machines()
 
 
@@ -155,6 +182,8 @@ def fetch_machines() -> List[Dict[str, Any]]:
 
 def sync_employees() -> List[Dict[str, Any]]:
     """Синхронизирует сотрудников (водителей и механиков) с 1С"""
+    if not _should_sync('employees'):
+        return get_all_employees()
     return fetch_employees()
 
 
@@ -448,6 +477,8 @@ def _fetch_employees_fallback(
 
 def sync_departments() -> List[Dict[str, Any]]:
     """Синхронизирует подразделения из 1С и возвращает список"""
+    if not _should_sync('departments'):
+        return get_all_departments()
     return fetch_departments()
 
 
@@ -546,6 +577,8 @@ def fetch_departments() -> List[Dict[str, Any]]:
 
 def sync_repair_types() -> List[Dict[str, Any]]:
     """Синхронизирует виды ТО из 1С"""
+    if not _should_sync('repair_types'):
+        return get_all_repair_types()
     return fetch_repair_types()
 
 
@@ -599,78 +632,117 @@ def fetch_repair_types() -> List[Dict[str, Any]]:
 # ============================================================
 
 def sync_nomenclature() -> List[Dict[str, Any]]:
+    if not _should_sync('nomenclature'):
+        return get_nomenclature_by_parent(NOMENCLATURE_PARENT_REF_KEY)
     return fetch_nomenclature()
 
 
 def fetch_nomenclature() -> List[Dict[str, Any]]:
-    """
-    Получает номенклатуру из 1С OData — элементы из папки "Автозапчасти" и всех её подпапок (рекурсивно).
-    """
     if not ODATA_NOMENCLATURE_URL:
-        logger.warning("ODATA_NOMENCLATURE_URL not set. Returning local nomenclature.")
-        return get_all_nomenclature()
+        logger.warning("ODATA_NOMENCLATURE_URL не задан.")
+        return get_nomenclature_by_parent(NOMENCLATURE_PARENT_REF_KEY)
 
     try:
-        folder_url = ODATA_NOMENCLATURE_URL.split("?")[0]
+        target_parent_key = NOMENCLATURE_PARENT_REF_KEY
 
-        # Шаг 1: Находим корневую папку "Автозапчасти"
-        logger.info(f"Fetching nomenclature parent folder (Code={NOMENCLATURE_PARENT_CODE})")
-        filter_param = f"IsFolder eq true and Code eq '{NOMENCLATURE_PARENT_CODE}'"
-        data = _odata_get(folder_url, params={"$format": "json", "$filter": filter_param})
-        folders = data.get("value", [])
+        # Строим URL с $filter напрямую (requests кодирует $ в %24, что 1С не понимает)
+        separator = "&" if "?" in ODATA_NOMENCLATURE_URL else "?"
+        odata_filter = f"Parent_Key eq guid'{target_parent_key}' and IsFolder eq false"
+        encoded_filter = quote(odata_filter, safe="'()")
+        url_with_filter = f"{ODATA_NOMENCLATURE_URL}{separator}$filter={encoded_filter}"
+        logger.info(f"Fetching nomenclature from: {url_with_filter}")
 
-        if not folders:
-            logger.error(f"Folder with Code={NOMENCLATURE_PARENT_CODE} not found in Catalog_Номенклатура")
-            return get_all_nomenclature()
+        data = _odata_get(url_with_filter)
+        filtered_items = data.get("value", [])
+        logger.info(f"Received {len(filtered_items)} nomenclature items with Parent_Key={target_parent_key}")
 
-        root_ref_key = folders[0].get("Ref_Key", "")
-        root_name = folders[0].get("Description", "")
-        logger.info(f"Found nomenclature root folder: '{root_name}' Ref_Key={root_ref_key}")
+        # Если серверный фильтр не сработал (0 результатов), пробуем без фильтра + локальная фильтрация
+        if not filtered_items:
+            logger.warning("Server-side $filter returned 0 items, falling back to local filtering...")
+            data = _odata_get(ODATA_NOMENCLATURE_URL)
+            all_items = data.get("value", [])
+            logger.info(f"Received {len(all_items)} total nomenclature items from 1C")
+            filtered_items = [
+                item for item in all_items
+                if item.get("Parent_Key") == target_parent_key and not item.get("IsFolder")
+            ]
+            logger.info(f"After local filter: {len(filtered_items)} items match Parent_Key={target_parent_key}")
 
-        # Шаг 2: Рекурсивно собираем элементы из папки и всех подпапок
-        total_items = 0
-        folders_to_scan = [root_ref_key]
+        if filtered_items:
+            logger.info(f"Sample nomenclature keys: {list(filtered_items[0].keys())}")
+            for i, item in enumerate(filtered_items[:3]):
+                logger.info(f"  {i+1}. Description: '{item.get('Description', 'N/A')}', "
+                           f"Parent_Key: '{item.get('Parent_Key', 'N/A')}', "
+                           f"Ref_Key: '{item.get('Ref_Key', 'N/A')}', "
+                           f"IsFolder: {item.get('IsFolder', 'N/A')}")
 
-        while folders_to_scan:
-            current_parent = folders_to_scan.pop(0)
+        # Сначала upsert свежих, затем удаляем исчезнувшие из 1С —
+        # без окна, когда параллельный запрос видит пустой справочник
+        synced_count = 0
+        fresh_codes = []
+        for item in filtered_items:
+            code = item.get("Code")
+            name = item.get("Description")
+            ref_key = item.get("Ref_Key")
 
-            # Загружаем ВСЁ содержимое текущей папки (и папки, и элементы)
-            children_filter = f"Parent_Key eq guid'{current_parent}'"
-            children_data = _odata_get(folder_url, params={"$format": "json", "$filter": children_filter})
-            children = children_data.get("value", [])
+            if code and name:
+                upsert_nomenclature(
+                    code=str(code),
+                    name=str(name),
+                    ref_key=str(ref_key),
+                    parent_ref_key=str(target_parent_key)
+                )
+                fresh_codes.append(str(code))
+                synced_count += 1
 
-            for child in children:
-                is_folder = child.get("IsFolder", False)
-                code = child.get("Code", "")
-                name = child.get("Description", "")
-                ref_key = child.get("Ref_Key", "")
+        delete_nomenclature_stale(target_parent_key, fresh_codes)
 
-                if is_folder:
-                    # Добавляем подпапку в очередь на сканирование
-                    folders_to_scan.append(ref_key)
-                    logger.info(f"  Found subfolder: '{name}' — will scan its contents")
-                elif code and name:
-                    # Элемент — сохраняем
-                    upsert_nomenclature(
-                        code=str(code),
-                        name=str(name),
-                        ref_key=str(ref_key) if ref_key else None,
-                        parent_ref_key=current_parent,
-                    )
-                    total_items += 1
+        logger.info(f"Синхронизировано {synced_count} поз. номенклатуры с Parent_Key={target_parent_key}")
+        return get_nomenclature_by_parent(target_parent_key)
 
-        logger.info(f"Successfully synced {total_items} nomenclature items (recursive)")
-        return get_all_nomenclature()
-
-    except requests.HTTPError as e:
-        if e.response is not None and e.response.status_code == 404:
-            logger.error(f"Catalog_Номенклатура not found (404): {e}")
-        else:
-            logger.error(f"HTTP error fetching nomenclature: {e}")
-        return get_all_nomenclature()
     except Exception as e:
-        logger.error(f"Error fetching nomenclature: {e}")
-        return get_all_nomenclature()
+        logger.error(f"Ошибка при загрузке номенклатуры: {e}", exc_info=True)
+        return get_nomenclature_by_parent(target_parent_key)
+
+
+# ============================================================
+# MEASUREMENT UNITS (Единицы измерения)
+# ============================================================
+
+def sync_measurement_units() -> List[Dict[str, Any]]:
+    if not _should_sync('measurement_units'):
+        return get_all_measurement_units()
+    return fetch_measurement_units()
+
+
+def fetch_measurement_units() -> List[Dict[str, Any]]:
+    """Получает единицы измерения из 1С OData и сохраняет в БД."""
+    if not ODATA_MEASUREMENT_UNITS_URL:
+        logger.warning("ODATA_MEASUREMENT_UNITS_URL не задан.")
+        return get_all_measurement_units()
+
+    try:
+        data = _odata_get(ODATA_MEASUREMENT_UNITS_URL)
+        items = data.get("value", [])
+        # Фильтруем удалённые и папки
+        items = [i for i in items if not i.get("DeletionMark", False) and not i.get("IsFolder", False)]
+        logger.info(f"Received {len(items)} measurement units from 1C")
+
+        synced_count = 0
+        for item in items:
+            code = item.get("Code", "")
+            name = item.get("Description", "")
+            ref_key = item.get("Ref_Key", "")
+            if name:
+                upsert_measurement_unit(code=str(code), name=str(name), ref_key=str(ref_key))
+                synced_count += 1
+
+        logger.info(f"Synced {synced_count} measurement units from 1C")
+        return get_all_measurement_units()
+
+    except Exception as e:
+        logger.error(f"Error fetching measurement units: {e}", exc_info=True)
+        return get_all_measurement_units()
 
 
 # ============================================================
@@ -770,7 +842,7 @@ def _to_1c_datetime(raw_date: str) -> str:
                 return datetime.strptime(raw_date, fmt).strftime("%Y-%m-%dT00:00:00")
             except ValueError:
                 continue
-    return datetime.now().strftime("%Y-%m-%dT00:00:00")
+    return now_local().strftime("%Y-%m-%dT00:00:00")
 
 
 def _build_1c_sections(data: dict) -> Dict[str, list]:
@@ -836,7 +908,7 @@ def post_checklist_to_1c(data: dict, inspection_id: int) -> Optional[dict]:
 
     # --- Шапка документа ---
     doc_payload = {
-        "Date": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+        "Date": now_local().strftime("%Y-%m-%dT%H:%M:%S"),
         "Posted": False,
         "ИД": str(inspection_id),
         "ТипФормы": _FORM_TYPE_LABELS.get(form_type, form_type),
@@ -931,7 +1003,7 @@ def post_to_report_to_1c(data: dict, report_id: int) -> Optional[dict]:
             return default
 
     doc_payload = {
-        "Date": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+        "Date": now_local().strftime("%Y-%m-%dT%H:%M:%S"),
         "Posted": False,
         "ИД": str(report_id),
         "ДатаПроведения": _to_1c_datetime(data.get("to_date", "")),
@@ -972,12 +1044,16 @@ def post_to_report_to_1c(data: dict, report_id: int) -> Optional[dict]:
         for i, row in enumerate(materials, 1):
             nom_name = row.get("nomenclature_name", row.get("nomenclature", ""))
             nom_ref = row.get("nomenclature_uid")
+            unit_ref = row.get("unit_uid", "")
             mat_row = {
                 "LineNumber": str(i),
                 "Количество": to_num(row.get("quantity")),
-                "ЕдиницаИзмерения": row.get("unit_name", row.get("unit", "")),
                 "Стоимость": to_num(row.get("cost")),
             }
+            if unit_ref:
+                mat_row["ЕдиницаИзмерения_Key"] = unit_ref
+            else:
+                mat_row["ЕдиницаИзмерения"] = row.get("unit_name", row.get("unit", ""))
             if nom_ref:
                 mat_row["Номенклатура_Key"] = nom_ref
             else:
@@ -995,13 +1071,18 @@ def post_to_report_to_1c(data: dict, report_id: int) -> Optional[dict]:
     if works:
         works_rows = []
         for i, row in enumerate(works, 1):
-            works_rows.append({
+            work_row = {
                 "LineNumber": str(i),
                 "ВидРабот": row.get("work_type", ""),
-                "Исполнитель": row.get("performer", ""),
                 "ВремяВыполнения": row.get("duration", ""),
                 "Примечание": row.get("note", ""),
-            })
+            }
+            performer_ref = row.get("performer_uid", "")
+            if performer_ref:
+                work_row["Исполнитель_Key"] = performer_ref
+            else:
+                work_row["Исполнитель"] = row.get("performer_name", row.get("performer", ""))
+            works_rows.append(work_row)
         doc_payload["ВыполненныеРаботы"] = works_rows
 
     try:
@@ -1062,7 +1143,7 @@ def post_mileage_to_1c(machine_ref_key: str, mileage: int = 0,
         return None
 
     record_payload = {
-        "Period": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+        "Period": now_local().strftime("%Y-%m-%dT%H:%M:%S"),
         "Машина_Key": machine_ref_key,
         "Пробег": mileage,
         "Моточасы": motorhours,

@@ -1,0 +1,82 @@
+{% extends "admin/base.html" %}
+{% block title %}История отчетов — Админ-панель{% endblock %}
+{% block content %}
+<h1>История отчетов</h1>
+
+<div class="tabs">
+    <a href="{{ url_for('admin.reports', type='daily', date_from=date_from, date_to=date_to) }}"
+       class="tab {{ 'active' if rtype == 'daily' }}">📅 Ежедневные</a>
+    <a href="{{ url_for('admin.reports', type='weekly', date_from=date_from, date_to=date_to) }}"
+       class="tab {{ 'active' if rtype == 'weekly' }}">🗓 Еженедельные</a>
+    <a href="{{ url_for('admin.reports', type='to', date_from=date_from, date_to=date_to) }}"
+       class="tab {{ 'active' if rtype == 'to' }}">🔧 Отчеты о ТО</a>
+</div>
+
+<form method="get" class="filter-form">
+    <input type="hidden" name="type" value="{{ rtype }}">
+    <label>С <input type="date" name="date_from" value="{{ date_from }}"></label>
+    <label>По <input type="date" name="date_to" value="{{ date_to }}"></label>
+    {% include 'admin/_filters.html' %}
+    <button type="submit" class="btn btn-primary">Показать</button>
+    <a href="{{ url_for('admin.reports', type=rtype) }}" class="btn">Сбросить</a>
+</form>
+
+{% if rows %}
+<table class="admin-table responsive-table">
+    <thead>
+        {% if rtype == 'daily' %}
+        <tr><th>№</th><th>Дата/время</th><th>Отправитель</th><th>Telegram ID</th><th>Оператор</th>
+            <th>Проект</th><th>Машина</th><th>Адрес</th><th></th></tr>
+        {% elif rtype == 'weekly' %}
+        <tr><th>№</th><th>Дата/время</th><th>Отправитель</th><th>Тип</th><th>Водитель</th><th>Механик</th>
+            <th>Подразделение</th><th>Машина</th><th></th></tr>
+        {% else %}
+        <tr><th>№</th><th>Дата/время</th><th>Отправитель</th><th>Ответственный</th><th>Подразделение</th>
+            <th>Машина</th><th>Вид ремонта</th><th></th></tr>
+        {% endif %}
+    </thead>
+    <tbody>
+        {% for r in rows %}
+        {% if rtype == 'daily' %}
+        <tr>
+            <td data-label="№">{{ r.id }}</td>
+            <td data-label="Дата/время">{{ r.created_at.strftime('%d.%m.%Y %H:%M') if r.created_at else '—' }}</td>
+            <td data-label="Отправитель">{{ r.sender_name or '—' }}</td>
+            <td data-label="Telegram ID">{{ r.telegram_user_id or '—' }}</td>
+            <td data-label="Оператор">{{ r.operator_name or '—' }}</td>
+            <td data-label="Проект">{{ r.project or '—' }}</td>
+            <td data-label="Машина">{{ r.machine_model or '—' }} {{ r.machine_plate or '' }}</td>
+            <td data-label="Адрес" class="cell-address">{{ r.geo_address or '—' }}</td>
+            <td class="cell-action"><a class="btn btn-small" href="{{ url_for('admin.report_detail', rtype='daily', report_id=r.id) }}">Открыть</a></td>
+        </tr>
+        {% elif rtype == 'weekly' %}
+        <tr>
+            <td data-label="№">{{ r.id }}</td>
+            <td data-label="Дата/время">{{ r.created_at.strftime('%d.%m.%Y %H:%M') if r.created_at else '—' }}</td>
+            <td data-label="Отправитель">{{ r.sender_name or '—' }}</td>
+            <td data-label="Тип">{{ r.form_type_name or r.form_type }}</td>
+            <td data-label="Водитель">{{ r.driver_name or '—' }}</td>
+            <td data-label="Механик">{{ r.mechanic_name or '—' }}</td>
+            <td data-label="Подразделение">{{ r.department or '—' }}</td>
+            <td data-label="Машина">{{ r.machine_model or '—' }} {{ r.machine_plate or '' }}</td>
+            <td class="cell-action"><a class="btn btn-small" href="{{ url_for('admin.report_detail', rtype='weekly', report_id=r.id) }}">Открыть</a></td>
+        </tr>
+        {% else %}
+        <tr>
+            <td data-label="№">{{ r.id }}</td>
+            <td data-label="Дата/время">{{ r.created_at.strftime('%d.%m.%Y %H:%M') if r.created_at else '—' }}</td>
+            <td data-label="Отправитель">{{ r.sender_name or '—' }}</td>
+            <td data-label="Ответственный">{{ r.responsible_person or '—' }}</td>
+            <td data-label="Подразделение">{{ r.department or '—' }}</td>
+            <td data-label="Машина">{{ r.machine_model or '—' }} {{ r.machine_plate or '' }}</td>
+            <td data-label="Вид ремонта">{{ r.repair_type or '—' }}</td>
+            <td class="cell-action"><a class="btn btn-small" href="{{ url_for('admin.report_detail', rtype='to', report_id=r.id) }}">Открыть</a></td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="muted">Отчеты не найдены.</p>
+{% endif %}
+{% endblock %}

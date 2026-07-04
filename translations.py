@@ -23,7 +23,16 @@ BOT_MESSAGES = {
         "category_maintenance": "🔧 Отчет о проведенном ТО",
         "change_form_category": "🔀 Выбрать другую категорию",
         "fill_to_form_button": "📝 Заполнить отчет о ТО",
-        "to_submission_confirmed": "✅ Отчет о ТО отправлен.\nДата и время отправки: {datetime}"
+        "to_submission_confirmed": "✅ Отчет о ТО отправлен.\nДата и время отправки: {datetime}",
+        "select_checklist_period": "Выберите тип чек-листа:",
+        "checklist_daily": "📅 Ежедневный",
+        "checklist_weekly": "🗓 Еженедельный",
+        "change_checklist_period": "🔀 Выбрать тип чек-листа",
+        "fill_daily_form_button": "📝 Заполнить ежедневный чек-лист",
+        "daily_submission_confirmed": "✅ Ежедневный чек-лист отправлен.\nДата и время отправки: {datetime}",
+        "enter_full_name": "Для работы с ботом укажите ваше Ф.И.О (например: Иванов Иван Иванович):",
+        "full_name_saved": "✅ Спасибо, {name}! Ваши данные сохранены.",
+        "full_name_invalid": "⚠️ Укажите корректное Ф.И.О: минимум фамилия и имя (например: Иванов Иван)."
     },
     "en": {
         "welcome": "Hello! Select a language to fill out the equipment inspection form:",
@@ -42,7 +51,16 @@ BOT_MESSAGES = {
         "category_maintenance": "🔧 Maintenance Report",
         "change_form_category": "🔀 Select different category",
         "fill_to_form_button": "📝 Fill maintenance report",
-        "to_submission_confirmed": "✅ Maintenance report submitted.\nSubmission date and time: {datetime}"
+        "to_submission_confirmed": "✅ Maintenance report submitted.\nSubmission date and time: {datetime}",
+        "select_checklist_period": "Select checklist type:",
+        "checklist_daily": "📅 Daily",
+        "checklist_weekly": "🗓 Weekly",
+        "change_checklist_period": "🔀 Select checklist type",
+        "fill_daily_form_button": "📝 Fill daily checklist",
+        "daily_submission_confirmed": "✅ Daily checklist submitted.\nSubmission date and time: {datetime}",
+        "enter_full_name": "To use the bot, please enter your full name (e.g., John Smith):",
+        "full_name_saved": "✅ Thank you, {name}! Your details have been saved.",
+        "full_name_invalid": "⚠️ Please enter a valid full name: at least last and first name (e.g., John Smith)."
     },
     "kk": {
         "welcome": "Сәлеметсіз бе! Техника тексеру нысанын толтыру үшін тілді таңдаңыз:",
@@ -61,7 +79,16 @@ BOT_MESSAGES = {
         "category_maintenance": "🔧 ТҚ есебі",
         "change_form_category": "🔀 Басқа санатты таңдау",
         "fill_to_form_button": "📝 ТҚ есебін толтыру",
-        "to_submission_confirmed": "✅ ТҚ есебі жіберілді.\nЖіберу күні мен уақыты: {datetime}"
+        "to_submission_confirmed": "✅ ТҚ есебі жіберілді.\nЖіберу күні мен уақыты: {datetime}",
+        "select_checklist_period": "Тексеру тізімінің түрін таңдаңыз:",
+        "checklist_daily": "📅 Күнделікті",
+        "checklist_weekly": "🗓 Апта сайын",
+        "change_checklist_period": "🔀 Тексеру тізімінің түрін таңдау",
+        "fill_daily_form_button": "📝 Күнделікті тексеру тізімін толтыру",
+        "daily_submission_confirmed": "✅ Күнделікті тексеру тізімі жіберілді.\nЖіберу күні мен уақыты: {datetime}",
+        "enter_full_name": "Ботпен жұмыс істеу үшін Т.А.Ә көрсетіңіз (мысалы: Иванов Иван Иванович):",
+        "full_name_saved": "✅ Рақмет, {name}! Деректеріңіз сақталды.",
+        "full_name_invalid": "⚠️ Дұрыс Т.А.Ә көрсетіңіз: кемінде тегі мен аты (мысалы: Иванов Иван)."
     },
     "uz": {
         "welcome": "Assalomu aleykum! Texnika tekshirish formasini to'ldirish uchun tilni tanlang:",
@@ -80,7 +107,16 @@ BOT_MESSAGES = {
         "category_maintenance": "🔧 TO hisoboti",
         "change_form_category": "🔀 Boshqa toifani tanlash",
         "fill_to_form_button": "📝 TO hisobotini to'ldirish",
-        "to_submission_confirmed": "✅ TO hisoboti yuborildi.\nYuborish sanasi va vaqti: {datetime}"
+        "to_submission_confirmed": "✅ TO hisoboti yuborildi.\nYuborish sanasi va vaqti: {datetime}",
+        "select_checklist_period": "Tekshiruv ro'yxati turini tanlang:",
+        "checklist_daily": "📅 Kunlik",
+        "checklist_weekly": "🗓 Haftalik",
+        "change_checklist_period": "🔀 Tekshiruv ro'yxati turini tanlash",
+        "fill_daily_form_button": "📝 Kunlik tekshiruv ro'yxatini to'ldirish",
+        "daily_submission_confirmed": "✅ Kunlik tekshiruv ro'yxati yuborildi.\nYuborish sanasi va vaqti: {datetime}",
+        "enter_full_name": "Bot bilan ishlash uchun F.I.Sh kiriting (masalan: Ivanov Ivan Ivanovich):",
+        "full_name_saved": "✅ Rahmat, {name}! Ma'lumotlaringiz saqlandi.",
+        "full_name_invalid": "⚠️ To'g'ri F.I.Sh kiriting: kamida familiya va ism (masalan: Ivanov Ivan)."
     }
 }
 
@@ -205,6 +241,18 @@ FIELD_LABELS = {
         "en": "Machine",
         "kk": "Машина",
         "uz": "Mashina"
+    },
+    "operator": {
+        "ru": "Оператор",
+        "en": "Operator",
+        "kk": "Оператор",
+        "uz": "Operator"
+    },
+    "project": {
+        "ru": "Проект",
+        "en": "Project",
+        "kk": "Жоба",
+        "uz": "Loyiha"
     },
     "motorhours": {
         "ru": "Моточасы",
@@ -373,6 +421,68 @@ FIELD_LABELS = {
         "en": "Fuel capacity in fuel tank at the time of inspection",
         "kk": "Жанармай қоймасындағы жанармай көлемі тексеру кезінде",
         "uz": "Yoqilg'i xotirasida yoqilg'i hajmi tekshiruv vaqtida"
+    },
+    "engine_oil": {
+        "ru": "Состояние и уровень моторного масла",
+        "en": "Engine oil condition and level",
+        "kk": "Моторлық майдың жағдайы мен деңгейі",
+        "uz": "Motor moyining holati va darajasi"
+    },
+    "antifreeze": {
+        "ru": "Состояние и уровень антифриза",
+        "en": "Antifreeze condition and level",
+        "kk": "Антифриздің жағдайы мен деңгейі",
+        "uz": "Antifriz holati va darajasi"
+    },
+    "air_filter": {
+        "ru": "Состояние воздушного фильтра",
+        "en": "Air filter condition",
+        "kk": "Ауа сүзгісінің жағдайы",
+        "uz": "Havo filtri holati"
+    },
+    "check_comment": {
+        "ru": "Комментарий",
+        "en": "Comment",
+        "kk": "Түсініктеме",
+        "uz": "Izoh"
+    },
+    "general_photos": {
+        "ru": "Фотоотчёт техники",
+        "en": "Vehicle photo report",
+        "kk": "Техниканың фотоесебі",
+        "uz": "Texnika foto hisoboti"
+    },
+    "general_photos_hint": {
+        "ru": "Сфотографируйте технику с разных ракурсов (спереди, сзади, по бокам), "
+              "чтобы зафиксировать её общее состояние и внешний вид на момент проверки. "
+              "До 5 фотографий.",
+        "en": "Photograph the vehicle from different angles (front, rear, sides) "
+              "to record its general condition and appearance at the time of inspection. "
+              "Up to 5 photos.",
+        "kk": "Техниканы әртүрлі бұрыштардан (алдынан, артынан, бүйірінен) суретке түсіріңіз, "
+              "тексеру кезіндегі жалпы жағдайы мен сыртқы түрін тіркеу үшін. "
+              "5 суретке дейін.",
+        "uz": "Texnikani turli burchaklardan (oldindan, orqadan, yon tomonlardan) suratga oling, "
+              "tekshiruv vaqtidagi umumiy holati va tashqi ko'rinishini qayd etish uchun. "
+              "5 tagacha rasm."
+    },
+    "check_photos": {
+        "ru": "Фото состояния",
+        "en": "Condition photos",
+        "kk": "Жағдай фотосы",
+        "uz": "Holat fotosi"
+    },
+    "repair_photos": {
+        "ru": "Фотоотчёт (поломка / использованные запчасти)",
+        "en": "Photo report (breakdown / used parts)",
+        "kk": "Фотоесеп (сынық / қолданылған бөлшектер)",
+        "uz": "Foto hisobot (nosozlik / ishlatilgan ehtiyot qismlar)"
+    },
+    "repair_photos_hint": {
+        "ru": "Сфотографируйте поломку и/или запчасти, использованные при ремонте. До 10 фото.",
+        "en": "Photograph the breakdown and/or parts used for the repair. Up to 10 photos.",
+        "kk": "Сынықты және/немесе жөндеуге қолданылған бөлшектерді суретке түсіріңіз. 10 фотоға дейін.",
+        "uz": "Nosozlikni va/yoki ta'mirlashda ishlatilgan ehtiyot qismlarni suratga oling. 10 tagacha foto."
     }
 }
 
@@ -451,10 +561,10 @@ SECTION_HEADERS = {
         "uz": "Ta'mirlash haqida ma'lumot"
     },
     "to_section_downtime": {
-        "ru": "Простой",
-        "en": "Downtime",
-        "kk": "Тоқтап тұру",
-        "uz": "To'xtash"
+        "ru": "Простой техники",
+        "en": "Machinery idle time",
+        "kk": "Техниканың бос тұрып қалуы",
+        "uz": "Texnikaning bekor turib qolishi"
     },
     "to_section_materials": {
         "ru": "Использованные материалы",
@@ -467,6 +577,18 @@ SECTION_HEADERS = {
         "en": "Completed Works",
         "kk": "Орындалған жұмыстар",
         "uz": "Bajarilgan ishlar"
+    },
+    "daily_section_photos": {
+        "ru": "Фотоотчёт",
+        "en": "Photo Report",
+        "kk": "Фотоесеп",
+        "uz": "Foto hisobot"
+    },
+    "daily_section_checks": {
+        "ru": "Проверка узлов",
+        "en": "Component Checks",
+        "kk": "Тораптарды тексеру",
+        "uz": "Tugunlarni tekshirish"
     }
 }
 
@@ -505,6 +627,89 @@ OPTION_TRANSLATIONS = {
 }
 
 
+# Строки веб-приложения (Mini App): единый источник для шаблона и script.js
+# (раньше дублировались inline-словарями в index.html)
+WEBAPP_STRINGS = {
+    "subtitle": {
+        "ru": "Пожалуйста, заполните форму внимательно.",
+        "en": "Please fill out the form carefully.",
+        "kk": "Нысанды мұқият толтырыңыз.",
+        "uz": "Iltimos, formani ehtiyotkorlik bilan to'ldiring."
+    },
+    "submit_button": {"ru": "ОТПРАВИТЬ", "en": "SUBMIT", "kk": "ЖІБЕРУ", "uz": "YUBORISH"},
+    "my_answer": {"ru": "Мой ответ", "en": "My answer", "kk": "Менің жауабым", "uz": "Mening javobim"},
+    "field_required": {
+        "ru": "Это поле обязательно", "en": "This field is required",
+        "kk": "Бұл өріс міндетті", "uz": "Bu maydon majburiy"
+    },
+    "fill_one_field": {
+        "ru": "Заполните хотя бы одно поле", "en": "Fill in at least one field",
+        "kk": "Кемінде бір өрісті толтырыңыз", "uz": "Kamida bitta maydonni to'ldiring"
+    },
+    "other_placeholder": {
+        "ru": "Укажите свой вариант", "en": "Specify your option",
+        "kk": "Өз нұсқаңызды көрсетіңіз", "uz": "Oz variantingizni kiriting"
+    },
+    "add_row": {
+        "ru": "+ Добавить строку", "en": "+ Add row",
+        "kk": "+ Жол қосу", "uz": "+ Qator qo'shish"
+    },
+    "take_photo": {
+        "ru": "📷 Снять фото", "en": "📷 Take photo",
+        "kk": "📷 Фото түсіру", "uz": "📷 Foto olish"
+    },
+    "choose_photo": {
+        "ru": "🖼 Выбрать фото", "en": "🖼 Choose photo",
+        "kk": "🖼 Фото таңдау", "uz": "🖼 Foto tanlash"
+    },
+    "add_comment": {
+        "ru": "💬 Добавить комментарий", "en": "💬 Add comment",
+        "kk": "💬 Түсініктеме қосу", "uz": "💬 Izoh qo'shish"
+    },
+    "camera_cancel": {"ru": "Отмена", "en": "Cancel", "kk": "Бас тарту", "uz": "Bekor qilish"},
+    "camera_done": {"ru": "Готово", "en": "Done", "kk": "Дайын", "uz": "Tayyor"},
+    "camera_error": {
+        "ru": "Не удалось открыть камеру. Разрешите доступ к камере или выберите фото из галереи.",
+        "en": "Could not open the camera. Allow camera access or choose a photo from the gallery.",
+        "kk": "Камераны ашу мүмкін болмады. Камераға рұқсат беріңіз немесе галереядан фото таңдаңыз.",
+        "uz": "Kamerani ochib bo'lmadi. Kameraga ruxsat bering yoki galereyadan foto tanlang."
+    },
+    "loading_machines_error": {
+        "ru": "Не удалось загрузить список машин", "en": "Failed to load machines list",
+        "kk": "Машиналар тізімін жүктеу мүмкін болмады",
+        "uz": "Mashinalar ro'yxatini yuklash muvaffaqiyatsiz tugadi"
+    },
+    "loading_drivers_error": {
+        "ru": "Не удалось загрузить список водителей", "en": "Failed to load drivers list",
+        "kk": "Жүргізушілер тізімін жүктеу мүмкін болмады",
+        "uz": "Haydovchilar ro'yxatini yuklash muvaffaqiyatsiz tugadi"
+    },
+    "loading_mechanics_error": {
+        "ru": "Не удалось загрузить список механиков", "en": "Failed to load mechanics list",
+        "kk": "Механиктер тізімін жүктеу мүмкін болмады",
+        "uz": "Mexaniklar ro'yxatini yuklash muvaffaqiyatsiz tugadi"
+    },
+    "loading_departments_error": {
+        "ru": "Не удалось загрузить список подразделений", "en": "Failed to load departments list",
+        "kk": "Бөлімдер тізімін жүктеу мүмкін болмады",
+        "uz": "Bo'limlar ro'yxatini yuklash muvaffaqiyatsiz tugadi"
+    },
+    "submission_error": {
+        "ru": "Ошибка при отправке", "en": "Submission error",
+        "kk": "Жіберу қатесі", "uz": "Yuborish xatosi"
+    },
+    "network_error": {
+        "ru": "Ошибка сети. Попробуйте еще раз.", "en": "Network error. Please try again.",
+        "kk": "Желі қатесі. Қайталап көріңіз.", "uz": "Tarmoq xatosi. Iltimos, qayta urinib ko'ring."
+    },
+}
+
+
+def get_webapp_strings(lang: str = "ru") -> dict:
+    """Все строки веб-приложения для указанного языка (для шаблона и JS)."""
+    return {key: get_translation(WEBAPP_STRINGS, key, lang) for key in WEBAPP_STRINGS}
+
+
 def get_translation(translations_dict: dict, key: str, lang: str = "ru") -> str:
     """
     Получает перевод для заданного ключа и языка
@@ -523,8 +728,11 @@ def get_translation(translations_dict: dict, key: str, lang: str = "ru") -> str:
 
 
 def get_bot_message(key: str, lang: str = "ru") -> str:
-    """Получает сообщение бота на нужном языке"""
-    return BOT_MESSAGES.get(lang, BOT_MESSAGES["ru"]).get(key, key)
+    """Получает сообщение бота на нужном языке (фолбэк: русский, затем ключ)"""
+    value = BOT_MESSAGES.get(lang, {}).get(key)
+    if value is None:
+        value = BOT_MESSAGES["ru"].get(key, key)
+    return value
 
 
 def get_form_translation(key: str, lang: str = "ru") -> str:

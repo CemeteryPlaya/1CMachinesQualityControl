@@ -85,6 +85,17 @@ def get_form_config(lang: str = "ru") -> List[Dict[str, Any]]:
             "initially_hidden": True
         },
         {
+            # Фотоотчёт поломки/запчастей — показывается при внеплановом ремонте
+            "id": "repair_photos",
+            "label": get_translation(FIELD_LABELS, "repair_photos", lang),
+            "hint": get_translation(FIELD_LABELS, "repair_photos_hint", lang),
+            "type": "photo",
+            "required": False,
+            "min": 0,
+            "max": 10,
+            "initially_hidden": True
+        },
+        {
             "id": "repair_start_date",
             "label": get_translation(FIELD_LABELS, "repair_start_date", lang),
             "type": "date",
@@ -141,7 +152,7 @@ def get_form_config(lang: str = "ru") -> List[Dict[str, Any]]:
             "required": False,
             "fields": [
                 {"id": "work_type", "label": get_translation(FIELD_LABELS, "work_type", lang), "type": "text"},
-                {"id": "performer", "label": get_translation(FIELD_LABELS, "performer", lang), "type": "text"},
+                {"id": "performer", "label": get_translation(FIELD_LABELS, "performer", lang), "type": "select", "select_source": "responsible_persons"},
                 {"id": "duration", "label": get_translation(FIELD_LABELS, "duration", lang), "type": "text"},
                 {"id": "note", "label": get_translation(FIELD_LABELS, "note", lang), "type": "text"},
             ]

@@ -1,0 +1,173 @@
+{% extends "admin/base.html" %}
+{% block title %}Отчет №{{ report.id }} — Админ-панель{% endblock %}
+{% block content %}
+<a href="{{ url_for('admin.reports', type=rtype) }}" class="back-link">← К списку</a>
+
+{% if rtype == 'daily' %}
+<h1>📅 Ежедневный чек-лист №{{ report.id }}</h1>
+{% elif rtype == 'weekly' %}
+<h1>🗓 Чек-лист №{{ report.id }}</h1>
+<p class="form-type-badge">{{ form_name or report.form_type }}</p>
+{% else %}
+<h1>🔧 Отчет о ТО №{{ report.id }}</h1>
+{% endif %}
+
+<div class="detail-card">
+    <h2>Общая информация</h2>
+    <table class="detail-table">
+        <tr><th>Отправлен</th><td>{{ report.created_at.strftime('%d.%m.%Y %H:%M:%S') if report.created_at else '—' }}</td></tr>
+        <tr><th>Отправитель (Ф.И.О)</th><td>{{ report.sender_name or '—' }}</td></tr>
+        <tr><th>Telegram ID отправителя</th><td>{{ report.telegram_user_id or '—' }}</td></tr>
+        {% if rtype == 'daily' %}
+        <tr><th>Дата осмотра</th><td>{{ report.inspection_date.strftime('%d.%m.%Y') if report.inspection_date else '—' }}</td></tr>
+        <tr><th>Проект</th><td>{{ report.project or '—' }}</td></tr>
+        <tr><th>Оператор</th><td>{{ report.operator_name or '—' }}</td></tr>
+        <tr><th>Машина</th><td>{{ report.machine_model or '—' }} | {{ report.machine_plate or 'Нет ГРНЗ' }} | ИН: {{ report.machine_inventory or '—' }}</td></tr>
+        <tr><th>Топливо в баке</th><td>{{ report.fuel_amount or '—' }} ({{ report.fuel_type or '—' }})</td></tr>
+        <tr><th>Моточасы</th><td>{{ report.motorhours }}</td></tr>
+        {% elif rtype == 'weekly' %}
+        <tr><th>Дата инспекции</th><td>{{ report.inspection_date.strftime('%d.%m.%Y') if report.inspection_date else '—' }}</td></tr>
+        <tr><th>Подразделение</th><td>{{ report.department or '—' }}</td></tr>
+        <tr><th>Водитель</th><td>{{ report.driver_name or '—' }}</td></tr>
+        <tr><th>Механик</th><td>{{ report.mechanic_name or '—' }}</td></tr>
+        <tr><th>Машина</th><td>{{ report.machine_model or '—' }} | {{ report.machine_plate or 'Нет ГРНЗ' }} | ИН: {{ report.machine_inventory or '—' }}</td></tr>
+        <tr><th>Пробег / Моточасы</th><td>{{ report.mileage }} км / {{ report.motorhours }} м/ч</td></tr>
+        <tr><th>Топливо</th><td>{{ report.fuel_amount or '—' }} ({{ report.fuel_type or '—' }})</td></tr>
+        {% else %}
+        <tr><th>Дата ТО</th><td>{{ report.to_date.strftime('%d.%m.%Y') if report.to_date else '—' }}</td></tr>
+        <tr><th>Подразделение</th><td>{{ report.department or '—' }}</td></tr>
+        <tr><th>Ответственный</th><td>{{ report.responsible_person or '—' }}</td></tr>
+        <tr><th>Машина</th><td>{{ report.machine_model or '—' }} | {{ report.machine_plate or 'Нет ГРНЗ' }} | ИН: {{ report.machine_inventory or '—' }}</td></tr>
+        <tr><th>Вид ремонта</th><td>{{ report.repair_type or '—' }}</td></tr>
+        <tr><th>Причина поломки</th><td>{{ report.breakdown_reason or '—' }}</td></tr>
+        <tr><th>Ремонт</th><td>{{ report.repair_start_date.strftime('%d.%m.%Y') if report.repair_start_date else '—' }} — {{ report.repair_end_date.strftime('%d.%m.%Y') if report.repair_end_date else '—' }}</td></tr>
+        <tr><th>Простой</th><td>{{ report.downtime_days }} дн. {{ report.downtime_hours }} ч.</td></tr>
+        <tr><th>Использованные запчасти</th><td>{{ report.used_parts or '—' }}</td></tr>
+        {% endif %}
+    </table>
+</div>
+
+{% if rtype == 'to' and photos.get('repair_photos') %}
+<div class="detail-card">
+    <h2>Фотоотчёт (поломка / запчасти)</h2>
+    <div class="photo-grid">
+        {% for p in photos.get('repair_photos') %}
+        <a href="{{ url_for('app.serve_photo', filename=p) }}" target="_blank">
+            <img src="{{ url_for('app.serve_photo', filename=p) }}" alt="Фото">
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if rtype == 'daily' %}
+<div class="detail-card">
+    <h2>📍 Местоположение отправителя</h2>
+    {% if report.geo_latitude and report.geo_longitude %}
+    <p>{{ report.geo_address or 'Адрес не определен' }}</p>
+    <p>
+        <a href="https://www.openstreetmap.org/?mlat={{ report.geo_latitude }}&mlon={{ report.geo_longitude }}#map=16/{{ report.geo_latitude }}/{{ report.geo_longitude }}"
+           target="_blank" class="btn btn-small">Открыть на карте</a>
+        <span class="muted">({{ '%.6f'|format(report.geo_latitude) }}, {{ '%.6f'|format(report.geo_longitude) }})</span>
+    </p>
+    {% else %}
+    <p class="muted">Геолокация не передана.</p>
+    {% endif %}
+</div>
+
+<div class="detail-card">
+    <h2>Фотоотчёт техники</h2>
+    {% if photos.get('general_photos') %}
+    <div class="photo-grid">
+        {% for p in photos.get('general_photos') %}
+        <a href="{{ url_for('app.serve_photo', filename=p) }}" target="_blank">
+            <img src="{{ url_for('app.serve_photo', filename=p) }}" alt="Фото">
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="muted">Фото не приложены.</p>
+    {% endif %}
+</div>
+
+<div class="detail-card">
+    <h2>Проверка узлов</h2>
+    {% for check in checks %}
+    <div class="check-block">
+        <h3>{{ check.label }}</h3>
+        <p>Состояние:
+            {% if check.status %}
+                <span class="value-pill value-{{ check.status }}">{{ check.value }}</span>
+            {% else %}
+                <strong>{{ check.value }}</strong>
+            {% endif %}
+        </p>
+        {% if check.comment %}<p>Комментарий: {{ check.comment }}</p>{% endif %}
+        {% if check.photos %}
+        <div class="photo-grid">
+            {% for p in check.photos %}
+            <a href="{{ url_for('app.serve_photo', filename=p) }}" target="_blank">
+                <img src="{{ url_for('app.serve_photo', filename=p) }}" alt="Фото">
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% elif rtype == 'weekly' and results %}
+{% if result_groups %}
+    {# Результаты сгруппированы по секциям формы, подписи — как в самой форме #}
+    {% for group in result_groups %}
+    <div class="detail-card">
+        <h2>{{ group.header or 'Результаты проверки' }}</h2>
+        <table class="detail-table">
+            {% for item in group['items'] %}
+            <tr>
+                <th>{{ item.label }}</th>
+                <td>
+                    {% if item.status %}
+                        <span class="value-pill value-{{ item.status }}">{{ item.value }}</span>
+                    {% else %}
+                        {{ item.value }}
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+    {% endfor %}
+    {% if leftovers %}
+    <div class="detail-card">
+        <h2>{{ leftover_title or 'Прочее' }}</h2>
+        <table class="detail-table">
+            {% for item in leftovers %}
+            <tr>
+                <th>{{ item.label }}</th>
+                <td>
+                    {% if item.status %}
+                        <span class="value-pill value-{{ item.status }}">{{ item.value }}</span>
+                    {% else %}
+                        {{ item.value }}
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+    {% endif %}
+{% else %}
+    {# Конфиг формы не найден (например, отправка из Google Sheets) — сырой вывод #}
+    <div class="detail-card">
+        <h2>Результаты проверки</h2>
+        <table class="detail-table">
+            {% for key, value in results.items() %}
+            {% if value is string or value is number %}
+            <tr><th>{{ key }}</th><td>{{ value }}</td></tr>
+            {% endif %}
+            {% endfor %}
+        </table>
+    </div>
+{% endif %}
+{% endif %}
+{% endblock %}

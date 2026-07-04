@@ -88,15 +88,22 @@ document.addEventListener('DOMContentLoaded', () => {
     // Setup "Другое" (Other) functionality for radio buttons
     setupOtherInputs();
 
+    // Setup photo upload fields (daily checklist)
+    setupPhotoFields();
+
+    // Setup collapsible comment fields
+    setupCommentToggles();
+
     // Setup conditional date fields for insurance and technical_inspection
     setupConditionalDateFields();
 
-    // Load nomenclature for TO form repeaters, then init tables
-    if (window.APP_FORM_TYPE === 'to') {
-        loadNomenclature().then(() => initTables());
-    } else {
-        initTables();
-    }
+    // Load nomenclature + units + responsible persons for repeaters, then init tables
+    // responsible persons needed for performer select in works_table repeater
+    Promise.all([
+        loadNomenclature(),
+        loadMeasurementUnits(),
+        loadResponsiblePersons()
+    ]).then(() => initTables());
 });
 
 /**
@@ -203,6 +210,278 @@ let responsiblePersonsData = [];
 let repairTypesData = [];
 let nomenclatureData = [];
 
+// Хранилище загруженных (сжатых) фото: fieldId -> [{ blob, url }]
+const photoStore = {};
+
+/**
+ * Сжимает изображение в JPEG через canvas (макс. сторона maxDim).
+ * Возвращает Promise<Blob>. При ошибке отдаёт исходный файл.
+ */
+function compressImage(file, maxDim = 1600, quality = 0.82) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        const img = new Image();
+        reader.onload = (e) => { img.src = e.target.result; };
+        reader.onerror = () => resolve(file);
+        img.onerror = () => resolve(file);
+        img.onload = () => {
+            let { width, height } = img;
+            if (width > height && width > maxDim) {
+                height = Math.round(height * maxDim / width);
+                width = maxDim;
+            } else if (height >= width && height > maxDim) {
+                width = Math.round(width * maxDim / height);
+                height = maxDim;
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            canvas.toBlob((blob) => resolve(blob || file), 'image/jpeg', quality);
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+/**
+ * Инициализирует все блоки загрузки фото (.photo-card).
+ */
+function setupPhotoFields() {
+    document.querySelectorAll('.photo-card').forEach((card) => {
+        const fieldId = card.dataset.fieldId;
+        const max = parseInt(card.dataset.max || '5', 10);
+        photoStore[fieldId] = [];
+
+        // Обрабатывает выбранные/снятые файлы из любого input
+        const handleFiles = async (input) => {
+            const files = Array.from(input.files || []);
+            for (const file of files) {
+                if (photoStore[fieldId].length >= max) break;
+                const blob = await compressImage(file);
+                photoStore[fieldId].push({ blob, url: URL.createObjectURL(blob) });
+            }
+            input.value = '';
+            card.classList.remove('error');
+            renderPhotoPreviews(fieldId, max);
+        };
+
+        // Галерея/файлы (несколько фото)
+        const galleryInput = document.getElementById(`photo_input_${fieldId}`);
+        const galleryBtn = document.getElementById(`photo_btn_${fieldId}`);
+        if (galleryInput && galleryBtn) {
+            galleryBtn.addEventListener('click', () => galleryInput.click());
+            galleryInput.addEventListener('change', () => handleFiles(galleryInput));
+        }
+
+        // Камера: in-app съёмка через getUserMedia, с fallback на нативный input
+        const cameraInput = document.getElementById(`photo_camera_${fieldId}`);
+        const cameraBtn = document.getElementById(`photo_camera_btn_${fieldId}`);
+        if (cameraInput && cameraBtn) {
+            cameraBtn.addEventListener('click', () => openCamera(fieldId, max));
+            cameraInput.addEventListener('change', () => handleFiles(cameraInput));
+        }
+
+        renderPhotoPreviews(fieldId, max);
+    });
+
+    setupCameraModal();
+}
+
+/**
+ * Получает геолокацию респондента. Возвращает Promise<{lat, lon}|null>.
+ * Не отклоняется при отказе/ошибке — просто отдаёт null.
+ */
+function getGeolocation() {
+    return new Promise((resolve) => {
+        if (!navigator.geolocation) {
+            resolve(null);
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(
+            (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+            (err) => {
+                console.warn('Geolocation error:', err && err.message);
+                resolve(null);
+            },
+            { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+        );
+    });
+}
+
+// ============================================================
+// In-app камера (getUserMedia)
+// ============================================================
+let cameraState = { stream: null, fieldId: null, max: 0 };
+
+function setupCameraModal() {
+    const modal = document.getElementById('cameraModal');
+    if (!modal || modal.dataset.wired) return;
+    modal.dataset.wired = '1';
+
+    const cancelBtn = document.getElementById('cameraCancelBtn');
+    const doneBtn = document.getElementById('cameraDoneBtn');
+    const shutterBtn = document.getElementById('cameraShutterBtn');
+
+    if (cancelBtn) cancelBtn.textContent = t('camera_cancel');
+    if (doneBtn) doneBtn.textContent = t('camera_done');
+
+    if (cancelBtn) cancelBtn.addEventListener('click', closeCamera);
+    if (doneBtn) doneBtn.addEventListener('click', closeCamera);
+    if (shutterBtn) shutterBtn.addEventListener('click', capturePhoto);
+}
+
+async function openCamera(fieldId, max) {
+    const cameraInput = document.getElementById(`photo_camera_${fieldId}`);
+
+    // Если live-камера недоступна (нет API) — используем нативный input камеры
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        if (cameraInput) cameraInput.click();
+        return;
+    }
+
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: 'environment' } },
+            audio: false
+        });
+        cameraState.stream = stream;
+        cameraState.fieldId = fieldId;
+        cameraState.max = max;
+
+        const video = document.getElementById('cameraVideo');
+        video.srcObject = stream;
+        await video.play().catch(() => {});
+
+        document.getElementById('cameraModal').style.display = 'flex';
+        updateCameraCount();
+    } catch (e) {
+        console.error('getUserMedia failed:', e);
+        // Fallback: нативный input камеры (мобильные), иначе сообщение
+        if (cameraInput) {
+            cameraInput.click();
+        } else {
+            showError(t('camera_error'));
+        }
+    }
+}
+
+function updateCameraCount() {
+    const el = document.getElementById('cameraCount');
+    const { fieldId, max } = cameraState;
+    if (el && fieldId) el.textContent = `${(photoStore[fieldId] || []).length} / ${max}`;
+}
+
+function capturePhoto() {
+    const video = document.getElementById('cameraVideo');
+    const { fieldId, max } = cameraState;
+    if (!fieldId || !video) return;
+
+    if ((photoStore[fieldId] || []).length >= max) {
+        closeCamera();
+        return;
+    }
+
+    // Масштабируем кадр до макс. стороны 1600px
+    let w = video.videoWidth || 1280;
+    let h = video.videoHeight || 720;
+    const maxDim = 1600;
+    if (w > h && w > maxDim) { h = Math.round(h * maxDim / w); w = maxDim; }
+    else if (h >= w && h > maxDim) { w = Math.round(w * maxDim / h); h = maxDim; }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext('2d').drawImage(video, 0, 0, w, h);
+
+    canvas.toBlob((blob) => {
+        if (blob) {
+            photoStore[fieldId].push({ blob, url: URL.createObjectURL(blob) });
+            const card = document.getElementById(`card_${fieldId}`);
+            if (card) card.classList.remove('error');
+            renderPhotoPreviews(fieldId, max);
+            updateCameraCount();
+            if (tg.HapticFeedback && tg.HapticFeedback.impactOccurred) {
+                tg.HapticFeedback.impactOccurred('light');
+            }
+        }
+        // Достигли лимита — закрываем камеру
+        if ((photoStore[fieldId] || []).length >= max) {
+            closeCamera();
+        }
+    }, 'image/jpeg', 0.85);
+}
+
+function closeCamera() {
+    if (cameraState.stream) {
+        cameraState.stream.getTracks().forEach((track) => track.stop());
+    }
+    cameraState.stream = null;
+    cameraState.fieldId = null;
+    const video = document.getElementById('cameraVideo');
+    if (video) video.srcObject = null;
+    const modal = document.getElementById('cameraModal');
+    if (modal) modal.style.display = 'none';
+}
+
+/**
+ * Сворачиваемые комментарии: скрыты по умолчанию, раскрываются по кнопке.
+ */
+function setupCommentToggles() {
+    document.querySelectorAll('.comment-toggle-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const targetId = btn.dataset.target;
+            const textarea = document.getElementById(targetId);
+            const label = document.getElementById(`comment_label_${targetId}`);
+            if (label) label.style.display = 'block';
+            if (textarea) {
+                textarea.style.display = 'block';
+                textarea.focus();
+            }
+            btn.style.display = 'none';
+        });
+    });
+}
+
+/**
+ * Перерисовывает превью фото для поля и обновляет счётчик/кнопку.
+ */
+function renderPhotoPreviews(fieldId, max) {
+    const container = document.getElementById(`previews_${fieldId}`);
+    const countEl = document.getElementById(`photo_count_${fieldId}`);
+    const btn = document.getElementById(`photo_btn_${fieldId}`);
+    if (!container) return;
+
+    container.innerHTML = '';
+    photoStore[fieldId].forEach((photo, i) => {
+        const thumb = document.createElement('div');
+        thumb.className = 'photo-thumb';
+
+        const im = document.createElement('img');
+        im.src = photo.url;
+        thumb.appendChild(im);
+
+        const rm = document.createElement('button');
+        rm.type = 'button';
+        rm.className = 'photo-remove';
+        rm.textContent = '✕';
+        rm.onclick = () => {
+            URL.revokeObjectURL(photo.url);
+            photoStore[fieldId].splice(i, 1);
+            renderPhotoPreviews(fieldId, max);
+        };
+        thumb.appendChild(rm);
+
+        container.appendChild(thumb);
+    });
+
+    if (countEl) countEl.textContent = `${photoStore[fieldId].length} / ${max}`;
+    const atMax = photoStore[fieldId].length >= max;
+    if (btn) btn.style.display = atMax ? 'none' : '';
+    const cameraBtn = document.getElementById(`photo_camera_btn_${fieldId}`);
+    if (cameraBtn) cameraBtn.style.display = atMax ? 'none' : '';
+}
+
 async function loadMachines() {
     try {
         let category = 'all';
@@ -286,7 +565,17 @@ async function loadDepartments() {
 async function loadNomenclature() {
     try {
         const response = await fetch('api/nomenclature');
-        nomenclatureData = await response.json();
+        if (!response.ok) {
+            console.error(`Nomenclature API error: ${response.status} ${response.statusText}`);
+            return;
+        }
+        const data = await response.json();
+        if (Array.isArray(data)) {
+            nomenclatureData = data;
+        } else {
+            console.error("Nomenclature response is not an array:", data);
+            return;
+        }
         console.log(`Loaded ${nomenclatureData.length} nomenclature items`);
     } catch (e) {
         console.error("Failed to load nomenclature:", e);
@@ -361,6 +650,21 @@ function validateForm() {
     cards.forEach(card => {
         if (card.style.display === 'none') return; // пропускаем скрытые условные поля
 
+        // Блок фото: проверяем минимальное количество загруженных фото
+        if (card.classList.contains('photo-card')) {
+            const fid = card.dataset.fieldId;
+            const min = Math.max(parseInt(card.dataset.min || '1', 10), 1);
+            const count = (photoStore[fid] || []).length;
+            if (count >= min) {
+                card.classList.remove('error');
+            } else {
+                isValid = false;
+                card.classList.add('error');
+                if (!firstErrorCard) firstErrorCard = card;
+            }
+            return;
+        }
+
         const isOdometerGroup = card.classList.contains('odometer-group');
         const input = card.querySelector('input[type="text"], input[type="date"], input[type="number"], textarea');
         const hiddenSelect = card.querySelector('.custom-select-container input[type="hidden"]');
@@ -417,11 +721,15 @@ function validateForm() {
     return isValid;
 }
 
+let isSubmitting = false;
+
 async function submitForm() {
+    if (isSubmitting) return; // защита от двойной отправки
     if (!validateForm()) {
         return;
     }
 
+    isSubmitting = true;
     tg.MainButton.showProgress();
 
     // Collect data
@@ -513,6 +821,12 @@ async function submitForm() {
         console.log('✅ Form type captured:', window.APP_FORM_TYPE);
     }
 
+    // Подписанный Telegram initData — сервер валидирует подпись и берёт
+    // telegram_user_id из неё (подделать отправителя нельзя)
+    if (tg.initData) {
+        data['init_data'] = tg.initData;
+    }
+
     // Collect dynamic table data
     const materialsData = collectRepeaterData('materials_table');
     if (materialsData.length > 0) {
@@ -525,17 +839,45 @@ async function submitForm() {
 
     console.log('📤 Submitting data:', JSON.stringify(data, null, 2));
 
-    // Определяем endpoint по типу формы
-    const submitUrl = (window.APP_FORM_TYPE === 'to') ? 'submit_to' : 'submit';
-
     try {
-        const response = await fetch(submitUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
-        });
+        let response;
+        const formType = window.APP_FORM_TYPE;
+        const hasPhotos = Object.values(photoStore).some(list => list.length > 0);
+
+        if (formType === 'daily' || (formType === 'to' && hasPhotos)) {
+            if (formType === 'daily') {
+                // Получаем геолокацию респондента (не блокируем отправку при отказе/ошибке)
+                const geo = await getGeolocation();
+                if (geo) {
+                    data['geo_latitude'] = geo.lat;
+                    data['geo_longitude'] = geo.lon;
+                    console.log('📍 Geolocation captured:', geo);
+                } else {
+                    console.warn('📍 Geolocation unavailable');
+                }
+            }
+
+            // Multipart: поля (payload) + фото
+            const fd = new FormData();
+            fd.append('payload', JSON.stringify(data));
+            Object.keys(photoStore).forEach(fieldId => {
+                photoStore[fieldId].forEach((photo, i) => {
+                    fd.append(fieldId, photo.blob, `${fieldId}_${i + 1}.jpg`);
+                });
+            });
+            // Content-Type выставит браузер (с boundary)
+            const url = (formType === 'daily') ? 'submit_daily' : 'submit_to';
+            response = await fetch(url, { method: 'POST', body: fd });
+        } else {
+            const submitUrl = (formType === 'to') ? 'submit_to' : 'submit';
+            response = await fetch(submitUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+        }
 
         const result = await response.json();
 
@@ -547,12 +889,14 @@ async function submitForm() {
             showError(t('submission_error') + ': ' + (result.error || ''));
             tg.HapticFeedback.notificationOccurred('error');
             tg.MainButton.hideProgress();
+            isSubmitting = false;
         }
     } catch (e) {
         console.error('Network error:', e);
         showError(t('network_error'));
         tg.HapticFeedback.notificationOccurred('error');
         tg.MainButton.hideProgress();
+        isSubmitting = false;
     }
 }
 
@@ -640,6 +984,13 @@ function addRepeaterEntry(repeaterId) {
                 let sourceData = [];
                 if (field.select_source === 'nomenclature') sourceData = nomenclatureData;
                 if (field.select_source === 'units') sourceData = unitsData;
+                if (field.select_source === 'responsible_persons') {
+                    sourceData = responsiblePersonsData.map(p => ({
+                        id: p.id,
+                        name: p.full_name,
+                        ref_key: p.ref_key || ''
+                    }));
+                }
 
                 openSelectionModal(field.label, sourceData, (item) => {
                     triggerBtn.textContent = item.name;
@@ -715,19 +1066,26 @@ function initTables() {
 }
 
 // ============================================================
-// Static units data
+// Units data (loaded from 1C)
 // ============================================================
-const unitsData = [
-    { id: '', name: 'шт' },
-    { id: '', name: 'кг' },
-    { id: '', name: 'л' },
-    { id: '', name: 'м' },
-    { id: '', name: 'компл' },
-    { id: '', name: 'упак' },
-    { id: '', name: 'п.м.' },
-    { id: '', name: 'м²' },
-    { id: '', name: 'м³' },
-];
+let unitsData = [];
+
+async function loadMeasurementUnits() {
+    try {
+        const response = await fetch('api/measurement_units');
+        if (!response.ok) {
+            console.error(`Measurement units API error: ${response.status}`);
+            return;
+        }
+        const data = await response.json();
+        if (Array.isArray(data) && data.length > 0) {
+            unitsData = data;
+            console.log(`Loaded ${unitsData.length} measurement units`);
+        }
+    } catch (e) {
+        console.error("Failed to load measurement units:", e);
+    }
+}
 
 // ============================================================
 // Selection Modal
@@ -782,6 +1140,7 @@ function onRepairTypeSelected(selectedText) {
     const isUnplanned = selectedText.toLowerCase().includes('внеплановый');
     const breakdownCard = document.getElementById('card_breakdown_reason');
     const inspectionCard = document.getElementById('card_inspection_result');
+    const repairPhotosCard = document.getElementById('card_repair_photos');
 
     if (breakdownCard) {
         breakdownCard.style.display = isUnplanned ? 'block' : 'none';
@@ -797,6 +1156,15 @@ function onRepairTypeSelected(selectedText) {
         if (isUnplanned) {
             const ta = inspectionCard.querySelector('textarea');
             if (ta) ta.value = '';
+        }
+    }
+    // Фотоотчёт поломки/запчастей — только для внепланового ремонта
+    if (repairPhotosCard) {
+        repairPhotosCard.style.display = isUnplanned ? 'block' : 'none';
+        if (!isUnplanned && photoStore['repair_photos'] && photoStore['repair_photos'].length) {
+            photoStore['repair_photos'].forEach(p => URL.revokeObjectURL(p.url));
+            photoStore['repair_photos'] = [];
+            renderPhotoPreviews('repair_photos', parseInt(repairPhotosCard.dataset.max || '10', 10));
         }
     }
 }

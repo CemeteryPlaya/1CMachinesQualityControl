@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход — Админ-панель</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='admin.css') }}">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body class="login-body">
+    <div class="login-card">
+        <h1>🛠 Админ-панель</h1>
+        <p class="login-subtitle">Контроль качества техники</p>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <div class="flash flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endwith %}
+        <div id="tgStatus" class="flash" style="display:none"></div>
+        <form method="post" id="loginForm">
+            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <label>Логин
+                <input type="text" name="username" required autofocus autocomplete="username">
+            </label>
+            <label>Пароль
+                <input type="password" name="password" required autocomplete="current-password">
+            </label>
+            <button type="submit" class="btn btn-primary btn-block">Войти</button>
+        </form>
+    </div>
+    <script>
+        // Автовход из Telegram Mini App: если открыто внутри Telegram,
+        // отправляем подписанный initData; доступ — по Telegram ID в списке админов.
+        (function () {
+            const tg = window.Telegram && window.Telegram.WebApp;
+            if (!tg || !tg.initData) return; // обычный браузер — вход по паролю
+
+            tg.ready();
+            tg.expand();
+
+            const statusEl = document.getElementById('tgStatus');
+            statusEl.style.display = 'block';
+            statusEl.className = 'flash';
+            statusEl.textContent = 'Проверка доступа через Telegram...';
+
+            fetch('{{ url_for("admin.auth_telegram") }}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ init_data: tg.initData })
+            })
+            .then(r => r.json().then(data => ({ ok: r.ok, data })))
+            .then(({ ok, data }) => {
+                if (ok && data.success) {
+                    statusEl.className = 'flash flash-success';
+                    statusEl.textContent = 'Доступ разрешен, входим...';
+                    window.location.href = data.redirect;
+                } else {
+                    statusEl.className = 'flash flash-error';
+                    statusEl.textContent = (data.error === 'access_denied')
+                        ? 'Доступа нет: ваш Telegram ID не найден среди администраторов.'
+                        : 'Не удалось войти через Telegram.';
+                }
+            })
+            .catch(() => {
+                statusEl.className = 'flash flash-error';
+                statusEl.textContent = 'Ошибка сети при проверке доступа.';
+            });
+        })();
+    </script>
+</body>
+</html>

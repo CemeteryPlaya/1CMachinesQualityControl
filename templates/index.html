@@ -11,21 +11,11 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-    <!-- Translations -->
+    <!-- Translations: единый источник — translations.py (WEBAPP_STRINGS) -->
     <script>
         window.APP_LANG = "{{ lang }}";
         window.APP_FORM_TYPE = "{{ form_type }}";
-        window.TRANSLATIONS = {
-            "submit_button": "{{ {'ru': 'ОТПРАВИТЬ', 'en': 'SUBMIT', 'kk': 'ЖІБЕРУ', 'uz': 'YUBORISH'}[lang] }}",
-            "loading_machines_error": "{{ {'ru': 'Не удалось загрузить список машин', 'en': 'Failed to load machines list', 'kk': 'Машиналар тізімін жүктеу мүмкін болмады', 'uz': 'Mashinalar ro\'yxatini yuklash muvaffaqiyatsiz tugadi'}[lang] }}",
-            "loading_drivers_error": "{{ {'ru': 'Не удалось загрузить список водителей', 'en': 'Failed to load drivers list', 'kk': 'Жүргізушілер тізімін жүктеу мүмкін болмады', 'uz': 'Haydovchilar ro\'yxatini yuklash muvaffaqiyatsiz tugadi'}[lang] }}",
-            "loading_mechanics_error": "{{ {'ru': 'Не удалось загрузить список механиков', 'en': 'Failed to load mechanics list', 'kk': 'Механиктер тізімін жүктеу мүмкін болмады', 'uz': 'Mexaniklar ro\'yxatini yuklash muvaffaqiyatsiz tugadi'}[lang] }}",
-            "submission_error": "{{ {'ru': 'Ошибка при отправке', 'en': 'Submission error', 'kk': 'Жіберу қатесі', 'uz': 'Yuborish xatosi'}[lang] }}",
-            "network_error": "{{ {'ru': 'Ошибка сети. Попробуйте еще раз.', 'en': 'Network error. Please try again.', 'kk': 'Желі қатесі. Қайталап көріңіз.', 'uz': 'Tarmoq xatosi. Iltimos, qayta urinib ko\'ring.'}[lang] }}",
-            "other_placeholder": "{{ {'ru': 'Укажите свой вариант', 'en': 'Specify your option', 'kk': 'Өз нұсқаңызды көрсетіңіз', 'uz': 'Oz variantingizni kiriting'}[lang] }}",
-            "add_row": "{{ {'ru': '+ Добавить строку', 'en': '+ Add row', 'kk': '+ Жол қосу', 'uz': '+ Qator qo\'shish'}[lang] }}",
-            "delete": "{{ {'ru': '✕', 'en': '✕', 'kk': '✕', 'uz': '✕'}[lang] }}"
-        };
+        window.TRANSLATIONS = {{ ui | tojson }};
     </script>
 </head>
 <body>
@@ -33,7 +23,7 @@
     <div class="container">
         <div class="form-header">
             <h1>{{ title }}</h1>
-            <p>Пожалуйста, заполните форму внимательно.</p>
+            <p>{{ ui.subtitle }}</p>
         </div>
 
         <form id="inspectionForm">
@@ -45,14 +35,14 @@
                 {% elif item.type == 'text' %}
                     <div class="question-card" data-required="{{ item.required }}">
                         <label for="{{ item.id }}" class="question-label">{{ item.label }} {% if item.required %} <span class="required">*</span> {% endif %}</label>
-                        <input type="text" id="{{ item.id }}" name="{{ item.id }}" class="text-input" placeholder="Мой ответ">
-                        <div class="error-msg">Это поле обязательно</div>
+                        <input type="text" id="{{ item.id }}" name="{{ item.id }}" class="text-input" placeholder="{{ ui.my_answer }}">
+                        <div class="error-msg">{{ ui.field_required }}</div>
                     </div>
                 {% elif item.type == 'date' %}
                     <div class="question-card" data-required="{{ item.required }}" id="card_{{ item.id }}"{% if item.get('initially_hidden') %} style="display:none"{% endif %}>
                         <label for="{{ item.id }}" class="question-label">{{ item.label }} {% if item.required %} <span class="required">*</span> {% endif %}</label>
                         <input type="date" id="{{ item.id }}" name="{{ item.id }}" class="text-input">
-                        <div class="error-msg">Это поле обязательно</div>
+                        <div class="error-msg">{{ ui.field_required }}</div>
                     </div>
                 {% elif item.type == 'odometer_group' %}
                     <div class="question-card odometer-group" data-required="{{ item.required }}" id="card_{{ item.id }}">
@@ -68,14 +58,14 @@
                             </div>
                             {% endfor %}
                         </div>
-                        <div class="error-msg">Заполните хотя бы одно поле</div>
+                        <div class="error-msg">{{ ui.fill_one_field }}</div>
                     </div>
                 {% elif item.type == 'number' %}
                     <div class="question-card" data-required="{{ item.required }}" id="card_{{ item.id }}"{% if item.id in ('to_mileage', 'to_motorhours') %} style="display:none"{% endif %}>
                         <label for="{{ item.id }}" class="question-label">{{ item.label }} {% if item.required %} <span class="required">*</span> {% endif %}</label>
                         {% if item.hint %}<span class="field-hint">{{ item.hint }}</span>{% endif %}
                         <input type="number" id="{{ item.id }}" name="{{ item.id }}" class="text-input" placeholder="0" min="0">
-                        <div class="error-msg">Это поле обязательно</div>
+                        <div class="error-msg">{{ ui.field_required }}</div>
                     </div>
                 {% elif item.type == 'hidden' %}
                     <!-- Hidden field only for backend purpose -->
@@ -89,7 +79,7 @@
                             </button>
                             <input type="hidden" id="{{ item.id }}" name="{{ item.id }}">
                         </div>
-                        <div class="error-msg">Это поле обязательно</div>
+                        <div class="error-msg">{{ ui.field_required }}</div>
                         {% if item.conditional_notes %}
                             <div class="conditional-note" id="note_{{ item.id }}" style="display: none;"
                                  data-field-id="{{ item.id }}"
@@ -122,7 +112,7 @@
                                 {{ item.warning_text_alt }}
                             </div>
                         {% endif %}
-                        <div class="error-msg">Это поле обязательно</div>
+                        <div class="error-msg">{{ ui.field_required }}</div>
                     </div>
                 {% elif item.type == 'repeater' %}
                     <div class="repeater-container" id="repeater_{{ item.id }}" data-fields='{{ item.fields | tojson }}'>
@@ -131,7 +121,7 @@
                         </div>
                         <div style="padding: 0 0 12px 0;">
                             <button type="button" class="add-row-btn" onclick="addRepeaterEntry('{{ item.id }}')">
-                                {{ {'ru': '+ Добавить строку', 'en': '+ Add row', 'kk': '+ Жол қосу', 'uz': '+ Qator qo\'shish'}[lang] }}
+                                {{ ui.add_row }}
                             </button>
                         </div>
                     </div>
@@ -142,9 +132,38 @@
                     </div>
                 {% elif item.type == 'textarea' %}
                     <div class="question-card" data-required="{{ item.required }}" id="card_{{ item.id }}"{% if item.get('initially_hidden') %} style="display:none"{% endif %}>
-                        <label for="{{ item.id }}" class="question-label">{{ item.label }} {% if item.required %} <span class="required">*</span> {% endif %}</label>
-                        <textarea id="{{ item.id }}" name="{{ item.id }}" class="text-input textarea-input" rows="4" {% if item.maxlength %}maxlength="{{ item.maxlength }}"{% endif %} placeholder=""></textarea>
-                        <div class="error-msg">Это поле обязательно</div>
+                        {% if item.get('collapsible') %}
+                            <button type="button" class="comment-toggle-btn" id="comment_toggle_{{ item.id }}" data-target="{{ item.id }}">
+                                {{ ui.add_comment }}
+                            </button>
+                            <label for="{{ item.id }}" class="question-label comment-label" id="comment_label_{{ item.id }}" style="display:none">{{ item.label }}</label>
+                            <textarea id="{{ item.id }}" name="{{ item.id }}" class="text-input textarea-input comment-textarea" rows="4" {% if item.maxlength %}maxlength="{{ item.maxlength }}"{% endif %} placeholder="" style="display:none"></textarea>
+                        {% else %}
+                            <label for="{{ item.id }}" class="question-label">{{ item.label }} {% if item.required %} <span class="required">*</span> {% endif %}</label>
+                            <textarea id="{{ item.id }}" name="{{ item.id }}" class="text-input textarea-input" rows="4" {% if item.maxlength %}maxlength="{{ item.maxlength }}"{% endif %} placeholder=""></textarea>
+                        {% endif %}
+                        <div class="error-msg">{{ ui.field_required }}</div>
+                    </div>
+                {% elif item.type == 'photo' %}
+                    <div class="question-card photo-card" data-required="{{ item.required }}" id="card_{{ item.id }}"
+                         data-field-id="{{ item.id }}" data-min="{{ item.get('min', 0) }}" data-max="{{ item.get('max', 5) }}"{% if item.get('initially_hidden') %} style="display:none"{% endif %}>
+                        <label class="question-label">{{ item.label }} {% if item.required %} <span class="required">*</span> {% endif %}</label>
+                        {% if item.hint %}<span class="field-hint">{{ item.hint }}</span>{% endif %}
+                        <div class="photo-previews" id="previews_{{ item.id }}"></div>
+                        <div class="photo-actions">
+                            <button type="button" class="photo-add-btn" id="photo_camera_btn_{{ item.id }}">
+                                {{ ui.take_photo }}
+                            </button>
+                            <button type="button" class="photo-add-btn photo-gallery-btn" id="photo_btn_{{ item.id }}">
+                                {{ ui.choose_photo }}
+                            </button>
+                            <span class="photo-count" id="photo_count_{{ item.id }}"></span>
+                        </div>
+                        <!-- Камера: снимок прямо с устройства -->
+                        <input type="file" accept="image/*" capture="environment" class="photo-input" id="photo_camera_{{ item.id }}" style="display:none">
+                        <!-- Галерея/файлы: выбор нескольких фото -->
+                        <input type="file" accept="image/*" multiple class="photo-input" id="photo_input_{{ item.id }}" style="display:none">
+                        <div class="error-msg">{{ ui.field_required }}</div>
                     </div>
                 {% endif %}
             {% endfor %}
@@ -161,6 +180,17 @@
             </div>
             <input type="text" id="modalSearch" class="text-input modal-search" placeholder="Поиск..." autocomplete="off">
             <div id="modalList" class="modal-list"></div>
+        </div>
+    </div>
+
+    <!-- Camera Modal (in-app capture via getUserMedia) -->
+    <div id="cameraModal" class="camera-modal" style="display:none">
+        <video id="cameraVideo" class="camera-video" autoplay playsinline muted></video>
+        <div class="camera-count" id="cameraCount"></div>
+        <div class="camera-controls">
+            <button type="button" id="cameraCancelBtn" class="camera-ctrl-btn camera-ctrl-secondary"></button>
+            <button type="button" id="cameraShutterBtn" class="camera-shutter" aria-label="Shutter"></button>
+            <button type="button" id="cameraDoneBtn" class="camera-ctrl-btn camera-ctrl-secondary"></button>
         </div>
     </div>
 

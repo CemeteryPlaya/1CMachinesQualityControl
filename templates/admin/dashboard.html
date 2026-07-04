@@ -1,0 +1,70 @@
+{% extends "admin/base.html" %}
+{% block title %}Сегодня — Админ-панель{% endblock %}
+{% block content %}
+<h1>Отчеты за {{ today.strftime('%d.%m.%Y') }}</h1>
+
+<div class="stat-cards">
+    <div class="stat-card">
+        <div class="stat-value">{{ stats.daily_total }}</div>
+        <div class="stat-label">📅 Ежедневные</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ stats.weekly_total }}</div>
+        <div class="stat-label">🗓 Еженедельные</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ stats.to_total }}</div>
+        <div class="stat-label">🔧 Отчеты о ТО</div>
+    </div>
+</div>
+
+<h2>Кто отправил сегодня</h2>
+<div class="sender-columns">
+    {% for title, rows in [('📅 Ежедневные', stats.daily), ('🗓 Еженедельные', stats.weekly), ('🔧 Отчеты о ТО', stats.to)] %}
+    <div class="sender-col">
+        <h3>{{ title }}</h3>
+        {% if rows %}
+        <table class="admin-table">
+            <thead><tr><th>Отправитель</th><th>Кол-во</th></tr></thead>
+            <tbody>
+                {% for r in rows %}
+                <tr><td>{{ r.sender }}</td><td>{{ r.cnt }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="muted">Нет отчетов</p>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+
+<h2>Ежедневные отчеты за сегодня</h2>
+{% if latest_daily %}
+<table class="admin-table responsive-table">
+    <thead>
+        <tr>
+            <th>№</th><th>Время</th><th>Отправитель</th><th>Telegram ID</th><th>Оператор</th>
+            <th>Проект</th><th>Машина</th><th>Адрес</th><th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in latest_daily %}
+        <tr>
+            <td data-label="№">{{ r.id }}</td>
+            <td data-label="Время">{{ r.created_at.strftime('%H:%M') if r.created_at else '—' }}</td>
+            <td data-label="Отправитель">{{ r.sender_name or '—' }}</td>
+            <td data-label="Telegram ID">{{ r.telegram_user_id or '—' }}</td>
+            <td data-label="Оператор">{{ r.operator_name or '—' }}</td>
+            <td data-label="Проект">{{ r.project or '—' }}</td>
+            <td data-label="Машина">{{ r.machine_model or '—' }} {{ r.machine_plate or '' }}</td>
+            <td data-label="Адрес" class="cell-address">{{ r.geo_address or '—' }}</td>
+            <td class="cell-action"><a class="btn btn-small" href="{{ url_for('admin.report_detail', rtype='daily', report_id=r.id) }}">Открыть</a></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="muted">Сегодня ежедневные отчеты еще не отправлялись.</p>
+{% endif %}
+{% endblock %}
